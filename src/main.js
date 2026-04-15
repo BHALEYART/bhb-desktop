@@ -141,7 +141,7 @@ async function ensureMicBeforeLive() {
 // ── loadSection ───────────────────────────────────────────────────────────
 // Core navigation function — tears down previous section, resizes window,
 // sets theme, and loads the new section's HTML.
-function loadSection(section) {
+async function loadSection(section) {
   if (!mainWin || mainWin.isDestroyed()) return;
 
   // Teardown: unregister Live shortcuts and close OBS window when leaving Live
