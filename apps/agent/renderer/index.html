@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self' 'unsafe-inline' https:; 
+           img-src 'self' data: blob: https:; 
+           media-src 'self' blob: file: https:;
+           connect-src https:;">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BHB Agent Studio</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+<!-- ── Setup Overlay ─────────────────────────────────────────────────── -->
+<div id="setup-overlay" class="overlay hidden">
+  <div class="setup-card">
+    <div class="setup-logo">◆</div>
+    <div class="setup-title">BHB AGENT STUDIO</div>
+    <div class="setup-sub">First-time setup — configure your AI providers</div>
+
+    <div class="setup-section">
+      <div class="setup-label">AI PROVIDER</div>
+      <div class="provider-toggle">
+        <button class="prov-btn active" data-provider="anthropic">Claude (Anthropic)</button>
+        <button class="prov-btn" data-provider="openai">GPT-4 (OpenAI)</button>
+      </div>
+    </div>
+
+    <div class="setup-section" id="anthropic-section">
+      <div class="setup-label">ANTHROPIC API KEY</div>
+      <input class="setup-input" type="password" id="setup-anthropic-key" placeholder="sk-ant-...">
+    </div>
+    <div class="setup-section hidden" id="openai-section">
+      <div class="setup-label">OPENAI API KEY</div>
+      <input class="setup-input" type="password" id="setup-openai-key" placeholder="sk-...">
+    </div>
+
+    <div class="setup-section">
+      <div class="setup-label">ELEVENLABS API KEY <span class="setup-opt">for voice generation</span></div>
+      <input class="setup-input" type="password" id="setup-el-key" placeholder="xi-api-key or sk_...">
+      <div class="setup-hint">Get your key at <a href="#" onclick="bhb.shell.open('https://elevenlabs.io')">elevenlabs.io</a> → Profile → API Keys</div>
+    </div>
+
+    <button class="setup-save-btn" id="setup-save">SAVE & LAUNCH →</button>
+  </div>
+</div>
+
+<!-- ── Asset Download Overlay ────────────────────────────────────────── -->
+<div id="asset-overlay" class="overlay hidden">
+  <div class="setup-card">
+    <div class="setup-logo">↓</div>
+    <div class="setup-title">DOWNLOADING ASSETS</div>
+    <div class="setup-sub">Fetching character layers and trait files...</div>
+    <div class="asset-progress-bar"><div id="asset-progress-fill"></div></div>
+    <div id="asset-progress-label" class="setup-hint" style="text-align:center">Preparing...</div>
+  </div>
+</div>
+
+<!-- ── App Shell ──────────────────────────────────────────────────────── -->
+<div id="app" class="hidden">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">◆</div>
+      <div class="sidebar-brand">BHB<br><span>AGENT STUDIO</span></div>
+    </div>
+
+    <div class="sidebar-section-label">CHARACTERS</div>
+    <div id="slot-list"></div>
+    <button class="slot-new-btn" id="btn-new-slot">+ NEW CHARACTER</button>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="sidebar-nav">
+      <button class="nav-btn active" data-tab="build">
+        <span class="nav-icon">◈</span> Build
+      </button>
+      <button class="nav-btn" data-tab="voice">
+        <span class="nav-icon">◎</span> Voice
+      </button>
+      <button class="nav-btn" data-tab="chat">
+        <span class="nav-icon">◆</span> Chat
+      </button>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="footer-btn" id="btn-settings">⚙ Settings</button>
+      <div id="app-version" class="version-label"></div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main id="main-content">
+
+    <!-- No slot selected -->
+    <div id="no-slot-msg" class="empty-state">
+      <div class="empty-icon">◆</div>
+      <div class="empty-title">No Character Selected</div>
+      <div class="empty-sub">Create a new character or select one from the sidebar.</div>
+      <button class="btn-primary" onclick="document.getElementById('btn-new-slot').click()">+ NEW CHARACTER</button>
+    </div>
+
+    <!-- ── TAB: Build ───────────────────────────────────────────────── -->
+    <div class="tab-panel hidden" id="tab-build">
+      <div class="tab-header">
+        <div class="tab-title">BUILD CHARACTER</div>
+        <div class="subtabs">
+          <button class="subtab active" data-subtab="customizer">Customizer</button>
+          <button class="subtab" data-subtab="soul">Soul File</button>
+        </div>
+        <button class="btn-primary" id="btn-save-slot">SAVE</button>
+      </div>
+
+      <!-- Customizer subtab -->
+      <div class="subtab-panel" id="subtab-customizer">
+        <div class="trait-picker-wrap">
+
+          <!-- Preview column -->
+          <div class="trait-preview-col">
+            <div class="trait-preview-label">CHARACTER PREVIEW</div>
+            <canvas id="trait-canvas" width="1000" height="1000"></canvas>
+            <div class="trait-preview-hint">Preview renders from cached assets</div>
+          </div>
+
+          <!-- Trait selectors column -->
+          <div class="trait-selectors-col">
+            <div class="trait-selectors-header">
+              <span class="section-title" style="font-size:9px;letter-spacing:3px;color:var(--text2)">TRAITS</span>
+              <label class="toggle-row compact" style="margin:0">
+                <span>Female</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="trait-female">
+                  <span class="toggle-slider"></span>
+                </label>
+              </label>
+            </div>
+            <div id="trait-slots" class="trait-slots"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Soul File subtab -->
+      <div class="subtab-panel hidden" id="subtab-soul">
+        <div class="soul-form" id="soul-form">
+          <!-- Identity -->
+          <div class="form-section">
+            <div class="form-section-title">IDENTITY</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Character Name</label>
+                <input type="text" id="soul-name" placeholder="e.g. Gravel Pete">
+              </div>
+              <div class="form-group">
+                <label>Character ID <span class="hint-text">lowercase, hyphens</span></label>
+                <input type="text" id="soul-id" placeholder="gravel-pete">
+              </div>
+            </div>
+            <div class="form-group full">
+              <label>Tagline</label>
+              <input type="text" id="soul-tagline" placeholder="One sentence — character in a nutshell">
+            </div>
+          </div>
+
+          <!-- Personality -->
+          <div class="form-section">
+            <div class="form-section-title">PERSONALITY</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Archetype</label>
+                <input type="text" id="soul-archetype" placeholder="e.g. grumpy mentor">
+              </div>
+              <div class="form-group">
+                <label>Core Flaw</label>
+                <input type="text" id="soul-flaw" placeholder="e.g. trusts no one">
+              </div>
+            </div>
+            <div class="form-group full">
+              <label>Speaking Style</label>
+              <textarea id="soul-speaking-style" placeholder="Cadence, vocabulary, tone, quirks..."></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Traits <span class="hint-text">comma separated</span></label>
+                <input type="text" id="soul-traits" placeholder="gruff, loyal, sarcastic">
+              </div>
+              <div class="form-group">
+                <label>Mood Preset</label>
+                <select id="soul-mood">
+                  <option value="calm">😌 Calm</option>
+                  <option value="mad">😡 Mad</option>
+                  <option value="happy">😄 Happy</option>
+                  <option value="shocked">😲 Shocked</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Never Says <span class="hint-text">comma separated</span></label>
+                <input type="text" id="soul-never-says" placeholder="definitely, awesome">
+              </div>
+              <div class="form-group">
+                <label>Always Says <span class="hint-text">comma separated</span></label>
+                <input type="text" id="soul-always-says" placeholder="kid, listen up">
+              </div>
+            </div>
+          </div>
+
+          <!-- Backstory -->
+          <div class="form-section">
+            <div class="form-section-title">BACKSTORY</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Origin</label>
+                <input type="text" id="soul-origin" placeholder="Where they came from">
+              </div>
+              <div class="form-group">
+                <label>Occupation</label>
+                <input type="text" id="soul-occupation" placeholder="What they do">
+              </div>
+            </div>
+            <div class="form-group full">
+              <label>History</label>
+              <textarea id="soul-history" placeholder="2-4 sentences of lore..."></textarea>
+            </div>
+          </div>
+
+          <!-- Agent Prompt -->
+          <div class="form-section">
+            <div class="form-section-title">AGENT PROMPT</div>
+            <div class="form-group full">
+              <label>Prompt Prefix <span class="hint-text">establishes character voice for the AI</span></label>
+              <textarea id="soul-prompt-prefix" rows="5"
+                placeholder="You are [Character Name]. Write this as a direct LLM instruction. Establish their voice, rules, how they respond..."></textarea>
+            </div>
+            <div class="form-group full">
+              <label>Content Boundaries <span class="hint-text">comma separated</span></label>
+              <input type="text" id="soul-boundaries" placeholder="violence, adult content">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: Voice ───────────────────────────────────────────────── -->
+    <div class="tab-panel hidden" id="tab-voice">
+      <div class="tab-header">
+        <div class="tab-title">VOICE SETUP</div>
+        <button class="btn-secondary" id="btn-refresh-voices">↺ Refresh</button>
+      </div>
+
+      <div id="voice-no-key" class="info-banner hidden">
+        ⚠ No ElevenLabs API key set. <a href="#" id="link-to-settings">Open Settings</a> to add one.
+      </div>
+
+      <div class="voice-layout">
+        <!-- Voice browser -->
+        <div class="voice-browser">
+          <div class="voice-search-row">
+            <input type="text" id="voice-search" placeholder="Search voices...">
+            <select id="voice-filter-gender">
+              <option value="">All Genders</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="neutral">Neutral</option>
+            </select>
+          </div>
+          <div id="voice-list" class="voice-list">
+            <div class="voice-loading">Loading voices...</div>
+          </div>
+        </div>
+
+        <!-- Voice settings panel -->
+        <div class="voice-settings-panel">
+          <div class="vsetting-title">SELECTED VOICE</div>
+          <div id="voice-selected-name" class="voice-selected-display">— none —</div>
+          <div id="voice-preview-player" class="hidden">
+            <audio id="voice-preview-audio" controls></audio>
+          </div>
+
+          <div class="vsetting-title" style="margin-top:24px">VOICE SETTINGS</div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>Stability</span><span id="val-stability">0.45</span>
+            </div>
+            <input type="range" id="slider-stability" min="0" max="1" step="0.05" value="0.45">
+            <div class="slider-hint">Lower = more expressive variance</div>
+          </div>
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>Similarity Boost</span><span id="val-similarity">0.75</span>
+            </div>
+            <input type="range" id="slider-similarity" min="0" max="1" step="0.05" value="0.75">
+          </div>
+          <div class="slider-group">
+            <div class="slider-label">
+              <span>Style</span><span id="val-style">0.30</span>
+            </div>
+            <input type="range" id="slider-style" min="0" max="1" step="0.05" value="0.30">
+            <div class="slider-hint">Adds stylistic exaggeration</div>
+          </div>
+          <div class="toggle-row">
+            <span>Speaker Boost</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-speaker-boost" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="vsetting-title" style="margin-top:24px">TEST VOICE</div>
+          <textarea id="voice-test-text" placeholder="Enter test line..."
+            style="margin-bottom:10px">Hey, name's Pete. You got a problem with that?</textarea>
+          <button class="btn-primary" id="btn-test-voice">▶ GENERATE TEST</button>
+          <div id="voice-test-player" class="hidden" style="margin-top:12px">
+            <audio id="voice-test-audio" controls style="width:100%"></audio>
+          </div>
+
+          <button class="btn-primary" id="btn-apply-voice" style="margin-top:20px;width:100%">
+            ✓ APPLY TO CHARACTER
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: Chat ────────────────────────────────────────────────── -->
+    <div class="tab-panel hidden" id="tab-chat">
+      <div class="tab-header">
+        <div class="tab-title">AGENT CHAT</div>
+        <div class="chat-controls">
+          <div class="voice-mode-row">
+            <span class="voice-mode-label">Voice</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-voice-mode" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <button class="btn-secondary btn-sm" id="btn-clear-chat">Clear</button>
+        </div>
+      </div>
+
+      <div class="chat-layout">
+
+        <!-- Left: character panel -->
+        <div class="chat-character-panel">
+          <canvas id="chat-canvas" width="1000" height="1000"></canvas>
+          <div id="chat-char-name" class="chat-char-name">— no character —</div>
+          <div id="chat-status" class="chat-status idle">Ready</div>
+          <div id="chat-audio-bar" class="chat-audio-bar hidden">
+            <div id="chat-audio-fill"></div>
+          </div>
+          <!-- Size selector -->
+          <div class="canvas-size-row">
+            <button class="size-btn active" data-size="240">S</button>
+            <button class="size-btn" data-size="600">M</button>
+          </div>
+          <audio id="chat-audio" style="display:none"></audio>
+        </div>
+
+        <!-- Right: conversation -->
+        <div class="chat-window">
+          <div id="chat-messages" class="chat-messages">
+            <div class="chat-welcome">
+              <div class="chat-welcome-icon">◆</div>
+              <div>Select a character and start chatting.<br>They'll respond in their own voice.</div>
+            </div>
+          </div>
+
+          <!-- Typing indicator (hidden until AI is thinking) -->
+          <div id="chat-typing" class="chat-typing hidden">
+            <span></span><span></span><span></span>
+          </div>
+
+          <div class="chat-input-row">
+            <textarea id="chat-input" placeholder="Type a message… (Enter to send)" rows="2"></textarea>
+            <button class="chat-send-btn" id="btn-send">▶</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-modal" class="modal hidden">
+  <div class="modal-backdrop" onclick="closeSettings()"></div>
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-title">SETTINGS</div>
+      <button class="modal-close" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-section">
+        <div class="settings-label">AI PROVIDER</div>
+        <div class="provider-toggle">
+          <button class="prov-btn" data-settings-provider="anthropic">Claude (Anthropic)</button>
+          <button class="prov-btn" data-settings-provider="openai">GPT-4 (OpenAI)</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">ANTHROPIC API KEY</div>
+        <input type="password" class="setup-input" id="settings-anthropic-key" placeholder="sk-ant-...">
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">OPENAI API KEY</div>
+        <input type="password" class="setup-input" id="settings-openai-key" placeholder="sk-...">
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">ELEVENLABS API KEY</div>
+        <input type="password" class="setup-input" id="settings-el-key" placeholder="xi-api-key or sk_...">
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">AI MODEL</div>
+        <select class="setup-input" id="settings-model">
+          <optgroup label="Anthropic">
+            <option value="claude-opus-4-5">Claude Opus 4.5 (best)</option>
+            <option value="claude-sonnet-4-5">Claude Sonnet 4.5 (fast)</option>
+          </optgroup>
+          <optgroup label="OpenAI">
+            <option value="gpt-4o">GPT-4o</option>
+            <option value="gpt-4o-mini">GPT-4o Mini (fast)</option>
+          </optgroup>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" id="btn-save-settings">SAVE SETTINGS</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/bhb-animator.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
