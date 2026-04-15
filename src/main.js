@@ -402,13 +402,12 @@ ipcMain.handle('app:go-home',  ()            => { loadSection('launcher'); retur
 ipcMain.handle('app:section',  ()            => currentSection);
 ipcMain.handle('app:version',  ()            => app.getVersion());
 
-// BHB Studio legacy: renderer fires ipcMain.on('navigate', page)
-// Maps 'customizer' / 'animator' to the unified section names
+// BHB Studio legacy: renderer fires ipcRenderer.send('navigate', page)
+// Also used by launcher cards via electronAPI.navigate(section)
 ipcMain.on('navigate', (_, page) => {
-  if (['studio', 'animator', 'customizer'].includes(currentSection) ||
-      currentSection === 'studio' || currentSection === 'animator') {
-    loadSection(page === 'animator' ? 'animator' : 'studio');
-  }
+  if (page === 'customizer') return loadSection('studio');
+  if (page === 'animator')   return loadSection('animator');
+  loadSection(page); // 'studio' | 'live' | 'agent' from launcher
 });
 
 // BHB Studio renderer asks which page is currently active
