@@ -123,6 +123,21 @@ async function ensureMicPermission() {
   }
 }
 
+// ── Mic gate for Live section ──────────────────────────────────────────────
+// BHB Live's renderer initialises multiple AudioContext nodes on load,
+// each triggering its own getUserMedia call. On macOS, if TCC hasn't granted
+// permission to this app yet, every call spawns a system dialog.
+// Fix: block the page load until TCC has resolved (granted or denied) so
+// all subsequent getUserMedia calls inside the renderer are already approved.
+async function ensureMicBeforeLive() {
+  if (process.platform !== 'darwin') return;
+  const status = systemPreferences.getMediaAccessStatus('microphone');
+  // Already granted — renderer calls will be silently approved by Chromium
+  if (status === 'granted') return;
+  // Show exactly one OS dialog, wait for the user to respond, then load
+  await systemPreferences.askForMediaAccess('microphone').catch(() => {});
+}
+
 // ── loadSection ───────────────────────────────────────────────────────────
 // Core navigation function — tears down previous section, resizes window,
 // sets theme, and loads the new section's HTML.
@@ -135,6 +150,10 @@ function loadSection(section) {
     shortcutMap.clear();
     if (liveWin && !liveWin.isDestroyed()) liveWin.close();
   }
+
+  // For Live: ensure macOS TCC mic permission resolves BEFORE the renderer
+  // loads. This prevents 12+ dialogs from multiple AudioContext init calls.
+  if (section === 'live') await ensureMicBeforeLive();
 
   const html = getSectionHTML(section);
   if (!html) { console.error(`[loadSection] Unknown section: ${section}`); return; }
