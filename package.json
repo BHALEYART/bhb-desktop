@@ -85,8 +85,7 @@
       "publisherName":           "Big Head Billionaires",
       "requestedExecutionLevel": "asInvoker",
       "target": [
-        { "target": "nsis",     "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        { "target": "nsis", "arch": ["x64"] }
       ]
     },
 
