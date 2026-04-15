@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BHB Live — Control</title>
+<style>
+/* ─── Reset & Variables ────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:        #0d0d0d;
+  --bg2:       #161616;
+  --bg3:       #1e1e1e;
+  --border:    #2a2a2a;
+  --border2:   #363636;
+  --yellow:    #f5d000;
+  --green:     #00e676;
+  --red:       #ff3b3b;
+  --blue:      #29b6f6;
+  --muted:     rgba(255,255,255,0.35);
+  --text:      rgba(255,255,255,0.88);
+  --text2:     rgba(255,255,255,0.5);
+  --accent:    #f5d000;
+  --live:      #00e676;
+  --panel-w:   260px;
+}
+html, body { width:100%; height:100%; background:var(--bg); color:var(--text); font-family:'Courier New',monospace; overflow:hidden; }
+
+/* ─── First-Run Download Screen ─────────────────────────────────────────── */
+#downloadScreen {
+  position:fixed; inset:0; z-index:1000;
+  background:var(--bg);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:1.5rem;
+}
+#downloadScreen.hidden { display:none; }
+.dl-logo  { font-size:2.2rem; color:var(--yellow); font-weight:700; letter-spacing:0.1em; text-align:center; }
+.dl-logo span { color:var(--text2); font-size:0.85rem; font-weight:400; display:block; margin-top:0.3rem; letter-spacing:0.05em; }
+.dl-box   { width:440px; max-width:90vw; background:var(--bg2); border:2px solid var(--border); border-radius:6px; padding:1.5rem; }
+.dl-title { font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--yellow); margin-bottom:1rem; }
+.dl-bar-wrap { background:var(--bg3); border-radius:3px; height:8px; overflow:hidden; margin-bottom:0.55rem; }
+.dl-bar   { height:100%; width:0%; background:var(--yellow); border-radius:3px; transition:width 0.12s linear; }
+.dl-stats { display:flex; justify-content:space-between; font-size:0.62rem; color:var(--text2); margin-bottom:0.5rem; }
+.dl-file  { font-size:0.56rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; height:0.9rem; margin-bottom:1rem; }
+.dl-note  { font-size:0.62rem; color:var(--text2); line-height:1.7; border-top:1px solid var(--border); padding-top:0.75rem; }
+.dl-note strong { color:var(--text); }
+.dl-err   { font-size:0.65rem; color:var(--red); margin-top:0.75rem; display:none; line-height:1.5; }
+.dl-btn   { margin-top:1rem; width:100%; padding:0.55rem; background:var(--yellow); color:#000;
+            font-family:inherit; font-size:0.72rem; font-weight:700; letter-spacing:0.08em;
+            border:none; border-radius:3px; cursor:pointer; display:none; }
+.dl-btn:hover { background:#e6c200; }
+
+/* ── Update Bar ──────────────────────────────────────────────────────────── */
+#updateBar {
+  grid-column: 1/-1;
+  display: none;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1rem;
+  height: 36px;
+  background: #0f1f0f;
+  border-bottom: 1px solid #1a4020;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  -webkit-app-region: no-drag;
+}
+#updateBar.visible { display: flex; }
+#updateBar.ready   { background: #0a1a2a; border-color: #1a3040; }
+.upd-dot  { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.upd-dot.ready { background: var(--blue); }
+.upd-msg  { color: rgba(255,255,255,0.65); flex: 1; }
+.upd-msg strong { color: var(--green); }
+.upd-msg.ready strong { color: var(--blue); }
+.upd-btn  {
+  height: 22px; padding: 0 0.75rem;
+  background: var(--green); color: #000;
+  font-family: inherit; font-size: 0.6rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  border: none; border-radius: 3px; cursor: pointer;
+  transition: opacity 0.15s; flex-shrink: 0;
+}
+.upd-btn.ready { background: var(--blue); }
+.upd-btn:hover { opacity: 0.85; }
+.upd-dismiss {
+  width: 20px; height: 20px; flex-shrink: 0;
+  background: transparent; border: none;
+  color: rgba(255,255,255,0.3); font-size: 0.75rem;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  border-radius: 3px; transition: color 0.1s;
+}
+.upd-dismiss:hover { color: rgba(255,255,255,0.7); }
+#app { display:grid; grid-template-columns:var(--panel-w) 1fr var(--panel-w); height:100vh; }
+
+/* ─── Header Bar ────────────────────────────────────────────────────────── */
+#header {
+  grid-column: 1/-1;
+  background: var(--bg2);
+  border-bottom: 2px solid var(--border);
+  padding: 0 1rem;
+  height: 48px;
+  display:flex; align-items:center; gap:1rem;
+  flex-shrink:0; -webkit-app-region:drag;
+}
+#header * { -webkit-app-region:no-drag; }
+.hd-logo { font-size:1.05rem; font-weight:700; color:var(--yellow); letter-spacing:0.08em; }
+.hd-logo span { color:var(--text2); font-size:0.72rem; font-weight:400; margin-left:0.4rem; }
+.hd-spacer { flex:1; }
+
+/* Live status dot */
+#liveStatus {
+  display:flex; align-items:center; gap:0.5rem;
+  font-size:0.7rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--text2);
+}
+.live-dot { width:8px; height:8px; border-radius:50%; background:var(--border2); transition:background 0.2s; }
+.live-dot.on { background:var(--live); box-shadow:0 0 8px var(--live); }
+#liveStatus.on { color:var(--live); }
+
+/* Header buttons */
+.hd-btn {
+  height:30px; padding:0 0.9rem;
+  font-family:inherit; font-size:0.7rem; letter-spacing:0.08em; text-transform:uppercase;
+  border:1px solid var(--border2); border-radius:3px;
+  background:transparent; color:var(--text); cursor:pointer; transition:all 0.12s;
+}
+.hd-btn:hover { border-color:var(--yellow); color:var(--yellow); }
+.hd-btn.go-live { background:var(--live); color:#000; border-color:var(--live); font-weight:700; }
+.hd-btn.go-live:hover { background:#00c85a; }
+.hd-btn.stop { background:var(--red); color:#fff; border-color:var(--red); }
+.hd-btn.stop:hover { background:#dd2222; }
+
+/* ─── Panels ─────────────────────────────────────────────────────────────── */
+.panel {
+  height: calc(100vh - 48px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-right: 2px solid var(--border);
+  background: var(--bg2);
+}
+.panel:last-child { border-right:none; border-left:2px solid var(--border); }
+.panel::-webkit-scrollbar { width:4px; }
+.panel::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+
+/* ─── Panel Sections ─────────────────────────────────────────────────────── */
+.section-hd {
+  padding:0.45rem 0.75rem;
+  background:var(--bg3);
+  border-bottom:1px solid var(--border);
+  font-size:0.62rem; letter-spacing:0.12em; text-transform:uppercase;
+  color:var(--yellow); display:flex; align-items:center; gap:0.5rem;
+}
+.section-hd span { color:var(--text2); font-size:0.6rem; letter-spacing:0.06em; text-transform:none; margin-left:auto; }
+
+/* ─── Memory Slots ───────────────────────────────────────────────────────── */
+.slots-row {
+  display:grid; grid-template-columns:1fr 1fr 1fr 1fr;
+  border-bottom:2px solid var(--border);
+}
+.slot-btn {
+  padding:0.55rem 0.2rem; border:none; border-right:1px solid var(--border);
+  background:transparent; cursor:pointer; transition:all 0.12s;
+  display:flex; flex-direction:column; align-items:center; gap:0.18rem;
+}
+.slot-btn:last-child { border-right:none; }
+.slot-btn .sl-num { font-family:inherit; font-size:0.9rem; color:var(--text2); }
+.slot-btn .sl-name { font-family:inherit; font-size:0.55rem; color:var(--muted); letter-spacing:0.04em; max-width:56px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.slot-btn.active { background:rgba(245,208,0,0.12); }
+.slot-btn.active .sl-num { color:var(--yellow); }
+.slot-btn.active .sl-name { color:var(--yellow); }
+.slot-btn:hover:not(.active) { background:var(--bg3); }
+
+.slot-actions {
+  display:grid; grid-template-columns:1fr 1fr 1fr;
+  border-bottom:1px solid var(--border); gap:0;
+}
+.sa-btn {
+  padding:0.38rem; border:none; border-right:1px solid var(--border);
+  background:transparent; font-family:inherit; font-size:0.6rem;
+  color:var(--text2); letter-spacing:0.06em; cursor:pointer; transition:all 0.1s;
+  text-transform:uppercase;
+}
+.sa-btn:last-child { border-right:none; }
+.sa-btn:hover { background:var(--bg3); color:var(--text); }
+.sa-btn.save-act { color:var(--green); }
+.sa-btn.save-act:hover { background:rgba(0,230,118,0.1); }
+.sa-btn.load-act { color:var(--blue); }
+.sa-btn.load-act:hover { background:rgba(41,182,246,0.1); }
+.sa-btn.send-act { color:var(--yellow); }
+.sa-btn.send-act:hover { background:rgba(245,208,0,0.1); }
+
+/* Slot name input */
+.slot-name-wrap {
+  padding:0.4rem 0.6rem; display:flex; gap:0.4rem; align-items:center;
+  border-bottom:1px solid var(--border);
+}
+.slot-name-input {
+  flex:1; background:var(--bg); border:1px solid var(--border2); border-radius:3px;
+  padding:0.28rem 0.5rem; font-family:inherit; font-size:0.65rem; color:var(--text);
+  outline:none;
+}
+.slot-name-input:focus { border-color:var(--yellow); }
+
+/* ─── Trait Rows ─────────────────────────────────────────────────────────── */
+.trait-row {
+  display:flex; align-items:center; gap:0.4rem; padding:0.3rem 0.6rem;
+  border-bottom:1px solid var(--border);
+}
+.trait-label { font-size:0.6rem; color:var(--text2); width:54px; flex-shrink:0; letter-spacing:0.04em; }
+.trait-thumb {
+  width:36px; height:36px; flex-shrink:0; border:1px solid var(--border2); border-radius:3px;
+  background:var(--bg); overflow:hidden; display:flex; align-items:center; justify-content:center;
+}
+.trait-thumb img { width:100%; height:100%; object-fit:contain; image-rendering:pixelated; }
+.trait-nav { display:flex; gap:0.2rem; flex:1; }
+.tn-btn {
+  flex:1; padding:0.3rem; border:1px solid var(--border2); border-radius:3px;
+  background:transparent; font-family:inherit; font-size:0.72rem; color:var(--text2);
+  cursor:pointer; transition:all 0.1s; text-align:center;
+}
+.tn-btn:hover { border-color:var(--yellow); color:var(--yellow); }
+.tn-btn:disabled { opacity:0.25; cursor:not-allowed; }
+.trait-count { font-size:0.55rem; color:var(--muted); min-width:32px; text-align:right; }
+
+/* Trait slider */
+.trait-slider {
+  width:100%; accent-color:var(--yellow); cursor:pointer; height:14px;
+  border-bottom:1px solid var(--border); padding:0.3rem 0.6rem; display:block;
+}
+
+/* Female toggle */
+.female-row {
+  display:flex; align-items:center; gap:0.5rem; padding:0.42rem 0.6rem;
+  border-bottom:1px solid var(--border); cursor:pointer;
+}
+.female-row input { accent-color:var(--yellow); cursor:pointer; }
+.female-row span { font-size:0.62rem; color:var(--text2); letter-spacing:0.04em; }
+
+/* ─── Center Canvas Area ─────────────────────────────────────────────────── */
+#center {
+  display:flex; flex-direction:column; align-items:center;
+  background:var(--bg); height:calc(100vh - 48px);
+  overflow:hidden;
+}
+#previewWrap {
+  flex:1; display:flex; align-items:center; justify-content:center;
+  width:100%; padding:0.75rem;
+}
+#previewCanvas {
+  max-width:100%; max-height:100%;
+  border:2px solid var(--border);
+  image-rendering:pixelated;
+}
+/* BG selector bar */
+#bgBar {
+  width:100%; border-top:2px solid var(--border);
+  background:var(--bg2); padding:0.5rem 0.75rem;
+  display:flex; align-items:center; gap:0.5rem; flex-shrink:0;
+  flex-wrap:wrap;
+}
+.bg-lbl { font-size:0.6rem; color:var(--text2); letter-spacing:0.08em; text-transform:uppercase; }
+.bg-btn {
+  height:26px; padding:0 0.65rem;
+  border:1px solid var(--border2); border-radius:3px;
+  background:transparent; font-family:inherit; font-size:0.65rem; color:var(--text2);
+  cursor:pointer; letter-spacing:0.05em; transition:all 0.12s;
+}
+.bg-btn:hover { border-color:var(--yellow); color:var(--yellow); }
+.bg-btn.active { border-color:var(--yellow); background:rgba(245,208,0,0.12); color:var(--yellow); }
+.bg-btn.green.active { border-color:var(--green); background:rgba(0,230,118,0.12); color:var(--green); }
+.bg-btn.blue.active  { border-color:var(--blue);  background:rgba(41,182,246,0.12);  color:var(--blue); }
+.scene-num { font-size:0.6rem; color:var(--text2); }
+#sceneNav { display:flex; align-items:center; gap:0.3rem; }
+.scene-arr {
+  width:22px; height:22px; border:1px solid var(--border2); border-radius:3px;
+  background:transparent; color:var(--text2); font-size:0.75rem; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; transition:all 0.1s;
+}
+.scene-arr:hover { border-color:var(--yellow); color:var(--yellow); }
+.scene-arr:disabled { opacity:0.25; cursor:not-allowed; }
+
+/* ─── Right Panel — Live Settings ───────────────────────────────────────── */
+.setting-row {
+  padding:0.4rem 0.7rem; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:0.5rem;
+}
+.setting-row label { font-size:0.62rem; color:var(--text2); flex:1; }
+.setting-row input[type=checkbox] { accent-color:var(--yellow); cursor:pointer; width:14px; height:14px; }
+.setting-row input[type=range] { flex:1; accent-color:var(--yellow); cursor:pointer; height:14px; }
+.setting-val { font-size:0.62rem; color:var(--yellow); min-width:26px; text-align:right; }
+
+/* Keybind rows */
+.kb-row {
+  padding:0.32rem 0.7rem; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:0.4rem;
+}
+.kb-expr { font-size:0.62rem; color:var(--text); flex:1; letter-spacing:0.03em; }
+.kb-expr.active-expr { color:var(--yellow); }
+.kb-key {
+  min-width:52px; height:22px; padding:0 0.4rem;
+  border:1px solid var(--border2); border-radius:3px;
+  background:var(--bg); font-family:inherit; font-size:0.62rem; color:var(--text2);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:all 0.12s; letter-spacing:0.05em;
+}
+.kb-key:hover { border-color:var(--yellow); color:var(--yellow); }
+.kb-key.recording { border-color:var(--red); color:var(--red); animation:blink-rec 0.6s infinite; }
+.kb-key.bound { border-color:rgba(0,230,118,0.5); color:var(--green); }
+@keyframes blink-rec { 0%,100%{opacity:1}50%{opacity:0.4} }
+.kb-clr {
+  width:20px; height:20px; border:1px solid var(--border); border-radius:3px;
+  background:transparent; color:var(--text2); font-size:0.65rem; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; transition:all 0.1s;
+}
+.kb-clr:hover { border-color:var(--red); color:var(--red); }
+
+/* Active expression indicator pill */
+#activeExprPill {
+  margin:0.5rem 0.7rem 0;
+  padding:0.35rem 0.6rem; border-radius:3px;
+  background:rgba(245,208,0,0.08); border:1px solid rgba(245,208,0,0.2);
+  font-size:0.62rem; color:var(--text2); letter-spacing:0.06em;
+  display:none;
+}
+#activeExprPill span { color:var(--yellow); }
+
+/* Mic vol meter */
+#micMeter {
+  margin:0.5rem 0.7rem; height:6px; background:var(--bg3); border-radius:3px; overflow:hidden;
+}
+#micMeterFill {
+  height:100%; width:0%; background:var(--green); border-radius:3px;
+  transition:width 0.06s; max-width:100%;
+}
+
+/* Window size controls */
+.size-inputs { display:flex; gap:0.35rem; flex:1; align-items:center; }
+.size-input {
+  width:52px; padding:0.25rem 0.4rem; background:var(--bg); border:1px solid var(--border2);
+  border-radius:3px; font-family:inherit; font-size:0.65rem; color:var(--text); outline:none;
+}
+.size-input:focus { border-color:var(--yellow); }
+.size-lbl { font-size:0.58rem; color:var(--muted); }
+.size-x { font-size:0.62rem; color:var(--text2); }
+
+/* Toast */
+#toast {
+  position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
+  background:var(--bg3); border:1px solid var(--border2); border-radius:4px;
+  padding:0.5rem 1rem; font-size:0.68rem; color:var(--text);
+  opacity:0; transition:opacity 0.2s; pointer-events:none; z-index:999;
+  white-space:nowrap;
+}
+#toast.show { opacity:1; }
+#toast.ok  { border-color:var(--green); color:var(--green); }
+#toast.err { border-color:var(--red);   color:var(--red); }
+#toast.warn{ border-color:var(--yellow);color:var(--yellow); }
+</style>
+</head>
+<body>
+
+<!-- ─── FIRST-RUN DOWNLOAD SCREEN ─────────────────────────────────────── -->
+<div id="downloadScreen">
+  <div class="dl-logo">🍔 BHB LIVE <span>First-time setup</span></div>
+  <div class="dl-box">
+    <div class="dl-title">⬇ Downloading character assets…</div>
+    <div class="dl-bar-wrap"><div class="dl-bar" id="dlBar"></div></div>
+    <div class="dl-stats">
+      <span id="dlCount">0 / 0</span>
+      <span id="dlPct">0%</span>
+    </div>
+    <div class="dl-file" id="dlFile">Starting…</div>
+    <div class="dl-note">
+      <strong>One-time download.</strong> All character images are being saved to your device.<br/>
+      Future launches will be instant — no internet required.
+    </div>
+    <div class="dl-err" id="dlErr"></div>
+    <button class="dl-btn" id="dlRetryBtn" onclick="startDownload()">↺ Retry Download</button>
+  </div>
+</div>
+
+<!-- ─── HEADER ─────────────────────────────────────────────────────────── -->
+<div style="grid-column:1/-1;display:contents">
+<div id="header" style="grid-column:1/-1">
+  <div class="hd-logo">🍔 BHB LIVE <span>OBS Plugin</span></div>
+  <div id="liveStatus">
+    <div class="live-dot" id="liveDot"></div>
+    <span id="liveStatusTxt">OFFLINE</span>
+  </div>
+  <div class="hd-spacer"></div>
+  <button class="hd-btn" id="previewBtn" onclick="sendToLive()" title="Push current character to live window">▶ PUSH STATE</button>
+  <button class="hd-btn go-live" id="goLiveBtn" onclick="toggleLive()">⬛ GO LIVE</button>
+</div>
+</div>
+
+<!-- ─── UPDATE BAR ────────────────────────────────────────────────────────── -->
+<div id="updateBar">
+  <div class="upd-dot" id="updDot"></div>
+  <div class="upd-msg" id="updMsg"></div>
+  <button class="upd-btn" id="updBtn" onclick="onUpdateBtn()"></button>
+  <button class="upd-dismiss" onclick="document.getElementById('updateBar').classList.remove('visible')" title="Dismiss">✕</button>
+</div>
+
+<!-- ─── MAIN GRID ──────────────────────────────────────────────────────── -->
+<div id="app">
+
+<!-- ══════ LEFT PANEL — Character Builder ═══════════════════════════════ -->
+<div class="panel" id="leftPanel">
+
+  <!-- Memory Slots -->
+  <div class="section-hd">💾 Memory Slots</div>
+  <div class="slots-row" id="slotsRow">
+    <button class="slot-btn active" onclick="selectSlot(0)" id="slotBtn0"><div class="sl-num">1</div><div class="sl-name" id="slotName0">Slot 1</div></button>
+    <button class="slot-btn" onclick="selectSlot(1)" id="slotBtn1"><div class="sl-num">2</div><div class="sl-name" id="slotName1">Slot 2</div></button>
+    <button class="slot-btn" onclick="selectSlot(2)" id="slotBtn2"><div class="sl-num">3</div><div class="sl-name" id="slotName2">Slot 3</div></button>
+    <button class="slot-btn" onclick="selectSlot(3)" id="slotBtn3"><div class="sl-num">4</div><div class="sl-name" id="slotName3">Slot 4</div></button>
+  </div>
+  <div class="slot-actions">
+    <button class="sa-btn save-act" onclick="saveSlot()">💾 Save</button>
+    <button class="sa-btn load-act" onclick="loadSlot()">📂 Load</button>
+    <button class="sa-btn send-act" onclick="sendToLive()">📡 Push</button>
+  </div>
+  <div class="slot-name-wrap">
+    <input type="text" class="slot-name-input" id="slotNameInput" placeholder="Slot name…" maxlength="16" oninput="onSlotNameInput()" />
+  </div>
+
+  <!-- Female Toggle -->
+  <div class="section-hd">🎨 Traits</div>
+  <label class="female-row">
+    <input type="checkbox" id="femaleToggle" onchange="toggleFemale()"/>
+    <span>👩 Female Mode (Eyelashes + Breasts)</span>
+  </label>
+
+  <!-- Trait rows injected by JS -->
+  <div id="traitRows"></div>
+
+</div>
+
+<!-- ══════ CENTER — Preview Canvas + BG Bar ══════════════════════════════ -->
+<div id="center">
+  <div id="previewWrap">
+    <canvas id="previewCanvas" width="600" height="600"></canvas>
+  </div>
+  <div id="bgBar">
+    <span class="bg-lbl">BG</span>
+    <button class="bg-btn active" data-bg="green"     onclick="setBgMode('green')"    >🟩 Green</button>
+    <button class="bg-btn blue"   data-bg="blue"      onclick="setBgMode('blue')"     >🟦 Blue</button>
+    <button class="bg-btn"        data-bg="none"      onclick="setBgMode('none')"     >⬛ None</button>
+    <button class="bg-btn"        data-bg="character" onclick="setBgMode('character')">🖼 Character BG</button>
+    <button class="bg-btn"        data-bg="scene"     onclick="setBgMode('scene')"    >🌆 Scene</button>
+    <div id="sceneNav" style="display:none">
+      <button class="scene-arr" id="scenePrev" onclick="sceneStep(-1)">◀</button>
+      <span class="scene-num" id="sceneNumLbl">—</span>
+      <button class="scene-arr" id="sceneNext" onclick="sceneStep(1)">▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ RIGHT PANEL — Live Settings ══════════════════════════════════ -->
+<div class="panel" id="rightPanel">
+
+  <!-- Expression Keybinds -->
+  <div class="section-hd">⌨ Expression Keybinds <span>click key to record</span></div>
+  <div id="activeExprPill">Active: <span id="activeExprName">—</span></div>
+  <div id="kbRows"></div>
+
+  <!-- Blink -->
+  <div class="section-hd" style="margin-top:4px">👁 Auto Blink</div>
+  <div class="setting-row">
+    <label for="blinkToggle">Auto Blink</label>
+    <input type="checkbox" id="blinkToggle" checked onchange="onBlinkToggle()"/>
+  </div>
+  <div class="setting-row">
+    <label for="blinkSlider">Interval</label>
+    <input type="range" id="blinkSlider" min="1" max="12" step="0.5" value="4" oninput="onBlinkSlider()"/>
+    <span class="setting-val" id="blinkVal">4s</span>
+  </div>
+
+  <!-- Lip Sync -->
+  <div class="section-hd">🎤 Lip Sync</div>
+  <div class="setting-row">
+    <label for="lipSyncToggle">Auto Lip Sync (Mic)</label>
+    <input type="checkbox" id="lipSyncToggle" checked onchange="onLipSyncToggle()"/>
+  </div>
+  <div class="setting-row">
+    <label>Style</label>
+    <select id="syncStyle" style="flex:1;background:var(--bg);border:1px solid var(--border2);border-radius:3px;color:var(--text);font-family:inherit;font-size:0.65rem;padding:0.2rem 0.4rem;" onchange="onSyncStyleChange()">
+      <option value="ehh">Ehh (default)</option>
+      <option value="ooo">Ooo</option>
+    </select>
+  </div>
+  <!-- Mic level meter -->
+  <div style="padding:0.3rem 0.7rem 0.1rem;font-size:0.58rem;color:var(--text2);letter-spacing:0.06em;">MIC LEVEL</div>
+  <div id="micMeter"><div id="micMeterFill"></div></div>
+
+  <!-- Live Window -->
+  <div class="section-hd" style="margin-top:4px">📺 Live Window</div>
+  <div class="setting-row">
+    <label for="aotToggle">Always on Top</label>
+    <input type="checkbox" id="aotToggle" onchange="onAOTToggle()"/>
+  </div>
+  <div class="setting-row">
+    <label for="statusToggle">Show Status Overlay</label>
+    <input type="checkbox" id="statusToggle" checked onchange="onStatusToggle()"/>
+  </div>
+  <div class="setting-row" style="flex-wrap:wrap;gap:0.4rem;">
+    <label>Window Size</label>
+    <div class="size-inputs">
+      <input type="number" class="size-input" id="livW" value="1000" min="200" max="4096"/>
+      <span class="size-x">×</span>
+      <input type="number" class="size-input" id="livH" value="1000" min="200" max="4096"/>
+      <button class="sa-btn send-act" style="padding:0.25rem 0.5rem;font-size:0.6rem;" onclick="applyLiveSize()">✓</button>
+    </div>
+  </div>
+
+</div><!-- end rightPanel -->
+</div><!-- end app grid -->
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+//  BHB LIVE — Control Panel
+// ═══════════════════════════════════════════════════════════════════════
+
+const ASSET_BASE   = 'bhb-asset://';
+const SCENES_BASE  = 'bhb-asset://SCENES';
+const SCENES_COUNT = 88;
+
+// ── Trait data ──────────────────────────────────────────────────────────────
+const TRAITS = {
+  EYES:    { label:'Eyes',    files: ['Curious.png','Alien.png','Annoyed.png','Demonic.png','Diamond.png','Dots.png','Grumpy.png','Hypnotized.png','Infuriated.png','Insect.png','Joy.png','Light Bright.png','Monocle.png','Ouchy.png','Paranoid.png','Possessed.png','Ruby Stare.png','Spider.png','Stare.png','Stoney Eyes.png','Sunglasses.png','Surprised.png','Tears.png','Deceased.png','Too Chill.png','VR Headset.png','3D Glasses.png','Blink.png','Stern.png','Tears.gif'] },
+  MOUTH:   { label:'Mouth',   files: ['Mmm.png','Simpleton.png','Stache.png','Creeper.png','Pierced.png','Fangs.png','Gold Teeth.png','Diamond Teeth.png','CandyGrill.png','Birdy.png','Panic.png','Sss.png','Ahh.png','Ehh.png','Uhh.png','LLL.png','Rrr.png','Fff.png','Ooo.png','Thh.png','Eee.png','Haha.png','Rofl.png','Bean Frown.png','Bean Smile.png','Smirk.png','Bored.png','Gas Mask.png','Scuba.png','Quacked.png'] },
+  HEAD:    { label:'Head/Hat', files: ['None.png','Antenna.png','Bandana Bro.png','Beanie.png','Blonde Beanie.png','Blonde Bun.png','Blue Bedhead.png','Brain Squid.png','Bravo.png','Brunette Beanie.png','Brunette Ponytail.png','Burger Crown.png','Captain Hat.png','Mullet.png','Cat Hat.png','Chad Bandana.png','Cherry Sundae.png','Clown Wig.png','Fancy Hat.png','Fireman.png','Flame Princess.png','Fossilized.png','Gamer Girl.png','Ginger Ponytail.png','Kpop.png','Yagami.png','Raven.png','Heated.png','Inferno.png','Horny Horns.png','Hunted.png','Jester.png','Kingly.png','Mad Hatter.png','Masked Up.png','Mohawk Blue.png','Mohawk Green.png','Mohawk Red.png','Mortricia.png','Outlaw.png','Overload.png','Patrol Cap.png','Pharaoh Hat.png','Pink Pigtails.png','Powdered Wig.png','Press Pass.png','Propeller.png','Rainbow Babe.png','Recon Helmet.png','Robin Hood.png','Santa Hat.png','Sewer Slime.png','Snapback Blue.png','Snapback Hippy.png','Snapback Red.png','Snapback Yellow.png','Sombrero.png','Spiritual.png','Surgeon.png','UwU Kitty.png','Valhalla Cap.png','Way Dizzy.png','FoxFamous.png','Unplugged.png'] },
+  OUTFIT:  { label:'Outfit',   files: ['None.png','Blue Tee.png','Blueberry Dye.png','Degen Green.png','Degen Purple.png','Earthy Dye.png','Hodl Black.png','Hodl White.png','Locked Up.png','Moto-X.png','Orange Zip.png','Passion Dye.png','Pink Zip.png','Raider Ref.png','Red Tee.png','Smally Bigs.png','Yellow Tee.png','Blue Zip.png','Red Zip.png','White Zip.png','Hornet Zip.png','Ghostly Zip.png','Gold Jacket.png','Tuxedo.png','Thrashed.png','The Fuzz.png','Pin Striped.png','Designer Zip.png','Luxury Zip.png','Explorer.png','Power Armor.png','Shinobi.png','Thrilled.png','Trenches.png','Ski Jacket.png','Sled Jacket.png','Commando.png','Space Cadet.png','Burgler.png','Commandant.png','Golden Knight.png','Honey Bee.png','Necromancer.png','Paladin.png','Refined Suit.png','Sexy Jacket.png','Stoner Hoodie.png','The Duke.png','Rave Hoodie.png','Scuba suit temp.png','Burger Suit.png','Scrubs.png','FlaredUp.png','Shiller.png','MetalFan.png','BH-Tshirt.png','Uni-Fyed.png','SuperFlare.png','BoigaRed.png'] },
+  TEXTURE: { label:'Texture',  files: ['None.png','Blood.png','Acid.png','Ink.png','Dart Frog Blue.png','Dart Frog Red.png','Dart Frog Yellow.png','Magical.png','Puzzled.png','Rug Life Ink.png','Pulverized.png','FlaredInk.png'] },
+  BODY:    { label:'Body',     files: ['Blank.png','Charcoal.png','High Voltage.png','Nebulous.png','Pinky.png','Shockwave.png','Tangerine.png','Turquoise.png','Woody.png','Frogger.png','Area 51.png','Dark Tone.png','Mid Tone.png','Light Tone.png','Jolly Roger.png','Cyber Punk.png','Talking Corpse.png','Day Tripper.png','Meat Lover.png','Golden God.png','Chrome Dome.png','Candy Gloss.png','Man On Fire.png','Water Boy.png','Icecream Man.png','Reptilian.png','Juiced Up.png','Toxic Waste.png','Love Potion.png','Pop Artist.png','Autopsy.png','Ghostly.png','Blue Screen.png','Networker.png','IceMan.png','TheLizard.png','Primal.png','PanduBeru.png'] },
+  BACKGROUNDS: { label:'BG Layer', files: ['None.png','Natural.png','Mania.png','Regal.png','Lavish.png','Sunflower.png','Snowflake.png','Bleach.png','Vibes.png','Burst.png','Aquatic.png','Passionate.png','Envious.png','Enlightened.png','Haunted.png','Cursed.png','SolFlare.png','Tangerine.png','Navy.png','Crimson.png','Graphite.png','Eggshell.png','Slate.png','Kuwai.png','Velvet.png','Money.png','Sky.png'] },
+};
+
+const FEMALE_LAYERS = {
+  EYELASHES: { folder:'GIRL', files:['Eyelashes.png'] },
+  BREASTS:   { folder:'GIRL', files:['Breasts.png'] },
+};
+
+const LAYER_ORDER = ['BACKGROUNDS','BODY','TEXTURE','OUTFIT','BREASTS','HEAD','MOUTH','EYELASHES','EYES'];
+
+// Expression states for keybinds
+const EXPRESSIONS = [
+  { label:'Stare',      file:'Stare.png' },
+  { label:'Curious',    file:'Curious.png' },
+  { label:'Joy',        file:'Joy.png' },
+  { label:'Surprised',  file:'Surprised.png' },
+  { label:'Stern',      file:'Stern.png' },
+  { label:'Infuriated', file:'Infuriated.png' },
+  { label:'Ouchy',      file:'Ouchy.png' },
+  { label:'Blink',      file:'Blink.png' },
+  { label:'— CLEAR —', file:'__CLEAR__' },
+];
+
+// ── Subset eyes (for preview rendering) ─────────────────────────────────────
+const SUBSET_EYES = {
+  'Alien.png':       { 'Stare.png':'EYES/SUBSET/alien.png','Blink.png':'EYES/SUBSET/alien-blink.png','Ouchy.png':'EYES/SUBSET/alien-ouchy.png','Infuriated.png':'EYES/SUBSET/alien-infuriated.png','Surprised.png':'EYES/SUBSET/alien-surprised.png','Stern.png':'EYES/SUBSET/alien-stern.png','Joy.png':'EYES/SUBSET/alien-joy.png','Curious.png':'EYES/SUBSET/alien-curious.png' },
+  'Demonic.png':     { 'Stare.png':'EYES/SUBSET/demonic.png','Blink.png':'EYES/SUBSET/demonic-blink.png','Ouchy.png':'EYES/SUBSET/demonic-ouchy.png','Infuriated.png':'EYES/SUBSET/demonic-infuriated.png','Surprised.png':'EYES/SUBSET/demonic-surprised.png','Stern.png':'EYES/SUBSET/demonic-stern.png','Joy.png':'EYES/SUBSET/demonic-joy.png','Curious.png':'EYES/SUBSET/demonic-curious.png' },
+  'Diamond.png':     { 'Stare.png':'EYES/SUBSET/diamond.png','Blink.png':'EYES/SUBSET/diamond-blink.png','Ouchy.png':'EYES/SUBSET/diamond-ouchy.png','Infuriated.png':'EYES/SUBSET/diamond-infuriated.png','Surprised.png':'EYES/SUBSET/diamond-surprised.png','Stern.png':'EYES/SUBSET/diamond-stern.png','Joy.png':'EYES/SUBSET/diamond-joy.png','Curious.png':'EYES/SUBSET/diamond-curious.png' },
+  'Possessed.png':   { 'Stare.png':'EYES/SUBSET/possesed.png','Blink.png':'EYES/SUBSET/possesed-blink.png','Ouchy.png':'EYES/SUBSET/possesed-ouchy.png','Infuriated.png':'EYES/SUBSET/possesed-infuriated.png','Surprised.png':'EYES/SUBSET/possesed-surprised.png','Stern.png':'EYES/SUBSET/possesed-stern.png','Joy.png':'EYES/SUBSET/possesed-joy.png','Curious.png':'EYES/SUBSET/possesed-curious.png' },
+  'Dots.png':        { 'Stare.png':'EYES/SUBSET/dots.png','Blink.png':'EYES/SUBSET/dots-blink.png','Ouchy.png':'EYES/SUBSET/dots-ouchy.png','Infuriated.png':'EYES/SUBSET/dots-infuriated.png','Surprised.png':'EYES/SUBSET/dots-surprised.png','Stern.png':'EYES/SUBSET/dots-stern.png','Joy.png':'EYES/SUBSET/dots-joy.png','Curious.png':'EYES/SUBSET/dots-curious.png' },
+  'Stoney Eyes.png': { 'Stare.png':'EYES/SUBSET/stoneyeyes.png','Blink.png':'EYES/SUBSET/stoneyeyes-blink.png','Ouchy.png':'EYES/SUBSET/stoneyeyes-ouchy.png','Infuriated.png':'EYES/SUBSET/stoneyeyes-infuriated.png','Surprised.png':'EYES/SUBSET/stoneyeyes-surprised.png','Stern.png':'EYES/SUBSET/stoneyeyes-stern.png','Joy.png':'EYES/SUBSET/stoneyeyes-joy.png','Curious.png':'EYES/SUBSET/stoneyeyes-curious.png' },
+  'VR Headset.png':  { 'Stare.png':'EYES/SUBSET/vrheadset.png','Blink.png':'EYES/SUBSET/vrheadset.png','Ouchy.png':'EYES/SUBSET/vrheadset.png','Infuriated.png':'EYES/SUBSET/vrheadset.png','Surprised.png':'EYES/SUBSET/vrheadset.png','Stern.png':'EYES/SUBSET/vrheadset.png','Joy.png':'EYES/SUBSET/vrheadset.png','Curious.png':'EYES/SUBSET/vrheadset.png' },
+  'Too Chill.png':   { 'Stare.png':'EYES/SUBSET/toochill.png','Blink.png':'EYES/SUBSET/toochill-blink.png','Ouchy.png':'EYES/SUBSET/toochill-blink.png','Infuriated.png':'EYES/SUBSET/toochill.png','Surprised.png':'EYES/SUBSET/toochill.png','Stern.png':'EYES/SUBSET/toochill.png','Joy.png':'EYES/SUBSET/toochill.png','Curious.png':'EYES/SUBSET/toochill.png' },
+  'Deceased.png':    { 'Stare.png':'EYES/SUBSET/deceased.png','Blink.png':'EYES/SUBSET/deceased-blink.png','Ouchy.png':'EYES/SUBSET/deceased-ouchy.png','Infuriated.png':'EYES/SUBSET/deceased.png','Surprised.png':'EYES/SUBSET/deceased.png','Stern.png':'EYES/SUBSET/deceased.png','Joy.png':'EYES/SUBSET/deceased.png','Curious.png':'EYES/SUBSET/deceased.png' },
+};
+
+// ── Image cache ───────────────────────────────────────────────────────────────
+const IMG = {};
+Object.keys(TRAITS).forEach(c => { IMG[c] = []; });
+Object.keys(FEMALE_LAYERS).forEach(c => { IMG[c] = []; });
+const IMG_SUBSET = {};
+
+function getSubsetImg(relPath) {
+  if (IMG_SUBSET[relPath]) return IMG_SUBSET[relPath];
+  const img = new Image();
+  img.src = `${ASSET_BASE}${relPath}`; IMG_SUBSET[relPath] = img; return img;
+}
+function preloadSubsets() {
+  Object.values(SUBSET_EYES).forEach(m => Object.values(m).forEach(p => getSubsetImg(p)));
+}
+
+// ── Slots ────────────────────────────────────────────────────────────────────
+const NUM_SLOTS = 4;
+const LS_PREFIX = 'bhb_obs_slot_';
+let activeSlot  = 0;
+
+function makeDefaultSlot(name = '') {
+  const idx = {};
+  Object.keys(TRAITS).forEach(c => { idx[c] = TRAITS[c].files.findIndex(f => f.toLowerCase() === 'none.png'); if(idx[c]<0)idx[c]=0; });
+  Object.keys(FEMALE_LAYERS).forEach(c => { idx[c] = 0; });
+  return { name, indices: idx, female: false };
+}
+
+const slots = Array.from({ length: NUM_SLOTS }, (_, i) => makeDefaultSlot(`Slot ${i+1}`));
+
+function saveSlot() {
+  try {
+    localStorage.setItem(LS_PREFIX + activeSlot, JSON.stringify(slots[activeSlot]));
+    toast(`Slot ${activeSlot+1} saved`, 'ok');
+  } catch(e) { toast('Save failed', 'err'); }
+}
+
+function loadSlot() {
+  try {
+    const raw = localStorage.getItem(LS_PREFIX + activeSlot);
+    if (!raw) { toast(`Slot ${activeSlot+1} is empty`, 'warn'); return; }
+    const d = JSON.parse(raw);
+    if (d.indices) Object.entries(d.indices).forEach(([k,v]) => { slots[activeSlot].indices[k] = +v; });
+    if (d.name   !== undefined) slots[activeSlot].name = d.name;
+    if (d.female !== undefined) slots[activeSlot].female = !!d.female;
+    syncSlotUI();
+    rebuildTraitRows();
+    renderPreview();
+    toast(`Slot ${activeSlot+1} loaded`, 'ok');
+  } catch(e) { toast('Load failed', 'err'); }
+}
+
+function selectSlot(i) {
+  activeSlot = i;
+  syncSlotUI();
+  rebuildTraitRows();
+  renderPreview();
+}
+
+function syncSlotUI() {
+  for (let i = 0; i < NUM_SLOTS; i++) {
+    document.getElementById(`slotBtn${i}`).classList.toggle('active', i === activeSlot);
+    document.getElementById(`slotName${i}`).textContent = slots[i].name || `Slot ${i+1}`;
+  }
+  document.getElementById('slotNameInput').value = slots[activeSlot].name || '';
+  document.getElementById('femaleToggle').checked = slots[activeSlot].female;
+}
+
+function onSlotNameInput() {
+  slots[activeSlot].name = document.getElementById('slotNameInput').value;
+  syncSlotUI();
+}
+
+// Load all slots from localStorage on init
+function loadAllSlots() {
+  for (let i = 0; i < NUM_SLOTS; i++) {
+    try {
+      const raw = localStorage.getItem(LS_PREFIX + i);
+      if (!raw) continue;
+      const d = JSON.parse(raw);
+      if (d.indices) Object.entries(d.indices).forEach(([k,v]) => { slots[i].indices[k] = +v; });
+      if (d.name   !== undefined) slots[i].name   = d.name;
+      if (d.female !== undefined) slots[i].female  = !!d.female;
+    } catch(_) {}
+  }
+}
+
+// ── Trait UI ──────────────────────────────────────────────────────────────────
+function rebuildTraitRows() {
+  const container = document.getElementById('traitRows');
+  container.innerHTML = '';
+  const slot = slots[activeSlot];
+
+  Object.entries(TRAITS).forEach(([cat, td]) => {
+    const count = td.files.length;
+    const cur   = slot.indices[cat] ?? 0;
+
+    // Thumb row
+    const row = document.createElement('div');
+    row.className = 'trait-row'; row.id = `tr-${cat}`;
+    row.innerHTML = `
+      <span class="trait-label">${td.label}</span>
+      <div class="trait-thumb"><img id="thumb-${cat}" src="" alt=""/></div>
+      <div class="trait-nav">
+        <button class="tn-btn" id="prev-${cat}" onclick="stepTrait('${cat}',-1)">◀</button>
+        <button class="tn-btn" id="next-${cat}" onclick="stepTrait('${cat}',1)">▶</button>
+      </div>
+      <span class="trait-count" id="cnt-${cat}">${cur+1}/${count}</span>
+    `;
+    container.appendChild(row);
+
+    // Slider row
+    const sliderWrap = document.createElement('div');
+    sliderWrap.style.cssText = 'padding:0 0.6rem 0.4rem; border-bottom:1px solid var(--border);';
+    sliderWrap.innerHTML = `<input type="range" class="trait-slider" id="sl-${cat}" min="0" max="${count-1}" value="${cur}" oninput="onTraitSlider('${cat}', this.value)" style="width:100%;accent-color:var(--yellow);cursor:pointer;"/>`;
+    container.appendChild(sliderWrap);
+
+    updateTraitThumb(cat);
+  });
+}
+
+function stepTrait(cat, dir) {
+  const slot  = slots[activeSlot];
+  const count = TRAITS[cat].files.length;
+  slot.indices[cat] = (slot.indices[cat] + dir + count) % count;
+  updateTraitThumb(cat);
+  renderPreview();
+}
+
+function onTraitSlider(cat, val) {
+  slots[activeSlot].indices[cat] = parseInt(val);
+  updateTraitThumb(cat);
+  renderPreview();
+}
+
+function updateTraitThumb(cat) {
+  const slot = slots[activeSlot];
+  const idx  = slot.indices[cat] ?? 0;
+  const file = TRAITS[cat].files[idx];
+  const thumb = document.getElementById(`thumb-${cat}`);
+  const cnt   = document.getElementById(`cnt-${cat}`);
+  const sl    = document.getElementById(`sl-${cat}`);
+  if (thumb) {
+    const img = IMG[cat]?.[idx];
+    if (img && img.complete && img.naturalWidth) {
+      thumb.src = img.src;
+    } else {
+      thumb.src = `${ASSET_BASE}${cat}/${encodeURIComponent(file)}`;
+    }
+    thumb.alt = file;
+  }
+  if (cnt) cnt.textContent = `${idx+1}/${TRAITS[cat].files.length}`;
+  if (sl)  sl.value = idx;
+}
+
+function toggleFemale() {
+  slots[activeSlot].female = document.getElementById('femaleToggle').checked;
+  renderPreview();
+}
+
+// ── Background ────────────────────────────────────────────────────────────────
+let bgMode     = 'green';
+let bgSceneIdx = 0;
+
+const SCENE_IMGS = {};
+function getSceneImg(idx) {
+  if (SCENE_IMGS[idx]) return SCENE_IMGS[idx];
+  const img = new Image();
+  img.onload = () => { SCENE_IMGS[idx] = img; renderPreview(); };
+  img.src = `${SCENES_BASE}/bg${idx+1}.png`;
+  SCENE_IMGS[idx] = img; return img;
+}
+
+function setBgMode(mode) {
+  bgMode = mode;
+  document.querySelectorAll('.bg-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.bg === mode);
+  });
+  document.getElementById('sceneNav').style.display = mode === 'scene' ? 'flex' : 'none';
+  if (mode === 'scene') { getSceneImg(bgSceneIdx); updateSceneLabel(); }
+  renderPreview();
+  sendToLive();
+}
+
+function sceneStep(dir) {
+  bgSceneIdx = Math.max(0, Math.min(bgSceneIdx + dir, SCENES_COUNT - 1));
+  getSceneImg(bgSceneIdx);
+  updateSceneLabel();
+  renderPreview();
+  sendToLive();
+}
+
+function updateSceneLabel() {
+  document.getElementById('sceneNumLbl').textContent = `${bgSceneIdx+1}/${SCENES_COUNT}`;
+}
+
+// ── Preview Render ────────────────────────────────────────────────────────────
+const previewCanvas = document.getElementById('previewCanvas');
+const pCtx          = previewCanvas.getContext('2d');
+const BG_COLORS     = { green:'#00ff00', blue:'#0000ff' };
+
+function renderPreview() {
+  const W = previewCanvas.width;
+  const H = previewCanvas.height;
+  pCtx.clearRect(0, 0, W, H);
+
+  // Background fill
+  if (bgMode === 'green' || bgMode === 'blue') {
+    pCtx.fillStyle = BG_COLORS[bgMode];
+    pCtx.fillRect(0, 0, W, H);
+  } else if (bgMode === 'scene') {
+    const si = SCENE_IMGS[bgSceneIdx];
+    if (si && si.complete && si.naturalWidth) { pCtx.drawImage(si, 0, 0, W, H); }
+    else { pCtx.fillStyle = '#1a1a2e'; pCtx.fillRect(0,0,W,H); }
+  } else if (bgMode === 'none') {
+    pCtx.fillStyle = '#111'; pCtx.fillRect(0,0,W,H);
+  }
+
+  // Character layers
+  const slot   = slots[activeSlot];
+  const idx    = slot.indices;
+  const female = slot.female;
+
+  for (const cat of LAYER_ORDER) {
+    if (FEMALE_LAYERS[cat] && !female) continue;
+    if (cat === 'BACKGROUNDS' && bgMode !== 'character') continue;
+
+    let imgIdx = idx[cat] ?? 0;
+    const img  = FEMALE_LAYERS[cat] ? IMG[cat]?.[0] : IMG[cat]?.[imgIdx];
+
+    if (cat === 'EYES') {
+      const baseFile = TRAITS.EYES.files[imgIdx];
+      // No active expression in preview by default
+      if (img && img.complete && img.naturalWidth) pCtx.drawImage(img, 0, 0, W, H);
+      continue;
+    }
+
+    if (img && img.complete && img.naturalWidth) {
+      pCtx.drawImage(img, 0, 0, W, H);
+    }
+  }
+}
+
+// ── Asset Preload ─────────────────────────────────────────────────────────────
+// Assets are already on disk (downloaded on first run). Load them via bhb-asset://.
+async function preloadAll() {
+  const all = [];
+  Object.entries(TRAITS).forEach(([cat, td]) => {
+    td.files.forEach((file, i) => {
+      all.push({ cat, i, url: `${ASSET_BASE}${cat}/${encodeURIComponent(file)}` });
+    });
+  });
+  Object.entries(FEMALE_LAYERS).forEach(([cat, ld]) => {
+    ld.files.forEach((file, i) => {
+      all.push({ cat, i, url: `${ASSET_BASE}${ld.folder}/${encodeURIComponent(file)}` });
+    });
+  });
+
+  let done = 0;
+  await Promise.all(all.map(({ cat, i, url }) => new Promise(res => {
+    const img = new Image();
+    img.onload = img.onerror = () => { done++; res(); };
+    img.src = url; IMG[cat][i] = img;
+  })));
+  preloadSubsets();
+  rebuildTraitRows();
+  renderPreview();
+}
+
+// ── Keybind System ────────────────────────────────────────────────────────────
+// keybinds: { expressionFile → accelerator string }
+const keybinds = {};
+let recordingFor = null;  // expression file currently being recorded
+let keyListener  = null;
+
+function buildKeybindRows() {
+  const container = document.getElementById('kbRows');
+  container.innerHTML = '';
+
+  EXPRESSIONS.forEach(({ label, file }) => {
+    const row = document.createElement('div');
+    row.className = 'kb-row'; row.id = `kb-row-${file}`;
+    row.innerHTML = `
+      <span class="kb-expr" id="kb-label-${file}">${label}</span>
+      <div class="kb-key" id="kb-key-${file}" title="Click to record key">${keybinds[file] || '—'}</div>
+      <button class="kb-clr" title="Clear" onclick="clearKeybind('${file}')">✕</button>
+    `;
+    row.querySelector('.kb-key').addEventListener('click', () => startRecording(file));
+    container.appendChild(row);
+  });
+}
+
+function startRecording(exprFile) {
+  // Cancel previous recording
+  if (recordingFor) cancelRecording();
+
+  recordingFor = exprFile;
+  const el = document.getElementById(`kb-key-${exprFile}`);
+  el.classList.add('recording');
+  el.textContent = '…press key';
+
+  // Capture next keydown globally
+  keyListener = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const accel = keyEventToAccelerator(e);
+    if (!accel || accel === 'Escape') { cancelRecording(); return; }
+    confirmRecording(exprFile, accel);
+  };
+  window.addEventListener('keydown', keyListener, true);
+}
+
+function cancelRecording() {
+  if (!recordingFor) return;
+  window.removeEventListener('keydown', keyListener, true);
+  const el = document.getElementById(`kb-key-${recordingFor}`);
+  if (el) {
+    el.classList.remove('recording');
+    el.textContent = keybinds[recordingFor] || '—';
+    el.classList.toggle('bound', !!keybinds[recordingFor]);
+  }
+  recordingFor = null;
+  keyListener  = null;
+}
+
+async function confirmRecording(exprFile, accel) {
+  window.removeEventListener('keydown', keyListener, true);
+  recordingFor = null; keyListener = null;
+
+  const el = document.getElementById(`kb-key-${exprFile}`);
+  if (!el) return;
+
+  if (window.electronAPI) {
+    const res = await window.electronAPI.registerShortcut(accel, exprFile);
+    if (res && res.ok) {
+      keybinds[exprFile] = accel;
+      el.textContent = accel;
+      el.classList.remove('recording');
+      el.classList.add('bound');
+      toast(`Keybind set: ${accel} → ${exprFile.replace('.png','')}`, 'ok');
+    } else {
+      el.classList.remove('recording');
+      el.textContent = keybinds[exprFile] || '—';
+      el.classList.toggle('bound', !!keybinds[exprFile]);
+      toast(res?.error || 'Key unavailable', 'err');
+    }
+  } else {
+    // Non-Electron fallback (browser dev mode)
+    keybinds[exprFile] = accel;
+    el.textContent = accel;
+    el.classList.remove('recording');
+    el.classList.add('bound');
+  }
+}
+
+async function clearKeybind(exprFile) {
+  const accel = keybinds[exprFile];
+  if (!accel) return;
+  if (window.electronAPI) {
+    await window.electronAPI.unregisterShortcut(accel);
+  }
+  delete keybinds[exprFile];
+  const el = document.getElementById(`kb-key-${exprFile}`);
+  if (el) { el.textContent = '—'; el.classList.remove('bound'); }
+}
+
+// Convert KeyboardEvent to Electron accelerator string
+function keyEventToAccelerator(e) {
+  const parts = [];
+  if (e.ctrlKey  || e.metaKey) parts.push('Ctrl');
+  if (e.altKey)                 parts.push('Alt');
+  if (e.shiftKey && e.key !== 'Shift') parts.push('Shift');
+
+  const k = e.key;
+  if (['Control','Alt','Shift','Meta'].includes(k)) return null;
+  if (k === ' ') { parts.push('Space'); return parts.join('+'); }
+  if (k.length === 1) { parts.push(k.toUpperCase()); return parts.join('+'); }
+  // F1–F12, named keys
+  const named = { ArrowUp:'Up', ArrowDown:'Down', ArrowLeft:'Left', ArrowRight:'Right',
+    Enter:'Return', Backspace:'Backspace', Delete:'Delete', Tab:'Tab',
+    Home:'Home', End:'End', PageUp:'PageUp', PageDown:'PageDown',
+    Insert:'Insert', Escape:'Escape', NumLock:'num0' };
+  if (k.match(/^F\d+$/)) { parts.push(k); return parts.join('+'); }
+  if (named[k]) { parts.push(named[k]); return parts.join('+'); }
+  parts.push(k.toUpperCase());
+  return parts.join('+');
+}
+
+// Active expression indicator (from IPC)
+let controlActiveExpr = null;
+function updateActiveExprUI(expr) {
+  controlActiveExpr = expr;
+  const pill = document.getElementById('activeExprPill');
+  const name = document.getElementById('activeExprName');
+  if (expr && expr !== '__CLEAR__') {
+    pill.style.display = 'block';
+    name.textContent = expr.replace('.png','');
+    // Highlight active row
+    document.querySelectorAll('.kb-expr').forEach(el => el.classList.remove('active-expr'));
+    const lbl = document.getElementById(`kb-label-${expr}`);
+    if (lbl) lbl.classList.add('active-expr');
+  } else {
+    pill.style.display = 'none';
+    document.querySelectorAll('.kb-expr').forEach(el => el.classList.remove('active-expr'));
+  }
+}
+
+// ── Live Controls ─────────────────────────────────────────────────────────────
+let isLive = false;
+
+async function toggleLive() {
+  if (!window.electronAPI) { toast('Electron only', 'warn'); return; }
+  if (isLive) {
+    await window.electronAPI.closeLiveWindow();
+  } else {
+    await window.electronAPI.openLiveWindow({
+      width:       parseInt(document.getElementById('livW').value) || 1000,
+      height:      parseInt(document.getElementById('livH').value) || 1000,
+      alwaysOnTop: document.getElementById('aotToggle').checked,
+      transparent: false,
+    });
+    // Push initial state after short delay for window to load
+    setTimeout(() => sendToLive(), 800);
+  }
+}
+
+function setLiveIndicator(on) {
+  isLive = on;
+  const dot = document.getElementById('liveDot');
+  const txt = document.getElementById('liveStatusTxt');
+  const status = document.getElementById('liveStatus');
+  const btn    = document.getElementById('goLiveBtn');
+  dot.classList.toggle('on', on);
+  status.classList.toggle('on', on);
+  txt.textContent = on ? 'LIVE' : 'OFFLINE';
+  btn.textContent = on ? '⏹ STOP LIVE' : '⬛ GO LIVE';
+  btn.classList.toggle('go-live', !on);
+  btn.classList.toggle('stop', on);
+}
+
+async function sendToLive() {
+  if (!window.electronAPI) return;
+  const live = await window.electronAPI.isLiveOpen();
+  if (!live) return;
+  const slot = slots[activeSlot];
+  await window.electronAPI.updateLiveState({
+    indices:          { ...slot.indices },
+    female:           slot.female,
+    bgMode,
+    bgSceneIdx,
+    lipSync:          document.getElementById('lipSyncToggle').checked,
+    lipSyncStyle:     document.getElementById('syncStyle').value,
+    autoBlink:        document.getElementById('blinkToggle').checked,
+    blinkIntervalSec: parseFloat(document.getElementById('blinkSlider').value),
+    showStatus:       document.getElementById('statusToggle').checked,
+  });
+}
+
+function onBlinkToggle()    { sendToLive(); }
+function onBlinkSlider()    {
+  document.getElementById('blinkVal').textContent = document.getElementById('blinkSlider').value + 's';
+  sendToLive();
+}
+function onLipSyncToggle()  { sendToLive(); }
+function onSyncStyleChange(){ sendToLive(); }
+
+async function onAOTToggle() {
+  if (window.electronAPI) {
+    await window.electronAPI.setLiveAlwaysOnTop(document.getElementById('aotToggle').checked);
+  }
+}
+
+function onStatusToggle() { sendToLive(); }
+
+async function applyLiveSize() {
+  const w = parseInt(document.getElementById('livW').value) || 1000;
+  const h = parseInt(document.getElementById('livH').value) || 1000;
+  if (window.electronAPI) await window.electronAPI.setLiveSize(w, h);
+}
+
+// ── Mic Meter in Control Panel ────────────────────────────────────────────────
+// Control panel gets its own mic preview so the user can see it's working
+let ctrlAudioCtx = null;
+let ctrlAnalyser = null;
+let ctrlMicActive = false;
+
+async function startControlMic() {
+  try {
+    const stream  = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+    ctrlAudioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+    ctrlAnalyser  = ctrlAudioCtx.createAnalyser();
+    ctrlAnalyser.fftSize = 256;
+    ctrlAnalyser.smoothingTimeConstant = 0.5;
+    const src = ctrlAudioCtx.createMediaStreamSource(stream);
+    src.connect(ctrlAnalyser);
+    ctrlMicActive = true;
+  } catch(e) {
+    console.warn('Control mic error:', e.message);
+  }
+}
+
+function getCtrlVol() {
+  if (!ctrlAnalyser) return 0;
+  const data = new Float32Array(ctrlAnalyser.fftSize);
+  ctrlAnalyser.getFloatTimeDomainData(data);
+  let s = 0; for (let i=0;i<data.length;i++) s += data[i]*data[i];
+  return Math.sqrt(s / data.length);
+}
+
+function updateMicMeter() {
+  const vol  = getCtrlVol();
+  const fill = document.getElementById('micMeterFill');
+  if (fill) fill.style.width = Math.min(100, vol * 800) + '%';
+  requestAnimationFrame(updateMicMeter);
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 2600);
+}
+
+// ── Update Bar ────────────────────────────────────────────────────────────────
+let _updateDownloaded = false;
+
+function showUpdateBar(msg, isReady, btnLabel) {
+  const bar  = document.getElementById('updateBar');
+  const dot  = document.getElementById('updDot');
+  const msgEl= document.getElementById('updMsg');
+  const btn  = document.getElementById('updBtn');
+  msgEl.innerHTML = msg;
+  btn.textContent = btnLabel;
+  bar.classList.toggle('ready', isReady);
+  dot.classList.toggle('ready', isReady);
+  msgEl.classList.toggle('ready', isReady);
+  btn.classList.toggle('ready', isReady);
+  bar.classList.add('visible');
+}
+
+function onUpdateBtn() {
+  if (_updateDownloaded) {
+    // Restart and install
+    if (window.electronAPI) window.electronAPI.installUpdate();
+  } else {
+    // Still downloading — open releases page as fallback
+    window.open('https://github.com/BHALEYART/bhb-obs-plugin/releases/latest', '_blank');
+  }
+}
+
+// ── IPC Listeners ─────────────────────────────────────────────────────────────
+if (window.electronAPI) {
+  window.electronAPI.onLiveWindowOpened(() => { setLiveIndicator(true); });
+  window.electronAPI.onLiveWindowClosed(() => { setLiveIndicator(false); });
+  window.electronAPI.onExpressionActivate((expr) => { updateActiveExprUI(expr); });
+
+  window.electronAPI.onAssetProgress(({ done, total, failed, file }) => {
+    const pct = Math.round((done / total) * 100);
+    document.getElementById('dlBar').style.width   = pct + '%';
+    document.getElementById('dlCount').textContent = `${done} / ${total}`;
+    document.getElementById('dlPct').textContent   = pct + '%';
+    document.getElementById('dlFile').textContent  = file || '';
+    if (failed > 0) {
+      document.getElementById('dlErr').textContent  = `⚠ ${failed} file(s) failed — may retry on next launch.`;
+      document.getElementById('dlErr').style.display = 'block';
+    }
+  });
+
+  // Update available — downloading in background
+  window.electronAPI.onUpdateAvailable(({ version }) => {
+    _updateDownloaded = false;
+    showUpdateBar(
+      `<strong>Update available — v${version}</strong> — downloading in background…`,
+      false, 'View Release'
+    );
+  });
+
+  // Update downloaded — ready to install
+  window.electronAPI.onUpdateDownloaded(({ version }) => {
+    _updateDownloaded = true;
+    showUpdateBar(
+      `<strong>v${version} ready to install</strong> — restart BHB Live to update.`,
+      true, '↺ Restart & Update'
+    );
+  });
+}
+
+// ── Download Screen ───────────────────────────────────────────────────────────
+async function startDownload() {
+  // Reset error state & hide retry button
+  document.getElementById('dlErr').style.display       = 'none';
+  document.getElementById('dlRetryBtn').style.display  = 'none';
+  document.getElementById('dlFile').textContent        = 'Connecting…';
+
+  // Seed the total count label
+  if (window.electronAPI) {
+    const total = await window.electronAPI.getAssetCount();
+    document.getElementById('dlCount').textContent = `0 / ${total}`;
+  }
+
+  const result = window.electronAPI
+    ? await window.electronAPI.downloadAllAssets()
+    : { ok: false, error: 'Not running in Electron' };
+
+  if (result && result.ok) {
+    launchApp();
+  } else {
+    const msg = (result && result.error) || 'Download failed.';
+    document.getElementById('dlErr').textContent  = `✗ ${msg}\nCheck your internet connection and try again.`;
+    document.getElementById('dlErr').style.display  = 'block';
+    document.getElementById('dlRetryBtn').style.display = 'block';
+  }
+}
+
+function launchApp() {
+  // Hide download screen, show the actual app
+  document.getElementById('downloadScreen').classList.add('hidden');
+  loadAllSlots();
+  syncSlotUI();
+  buildKeybindRows();
+  preloadAll();
+  startControlMic().then(updateMicMeter);
+  updateSceneLabel();
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+async function boot() {
+  if (!window.electronAPI) {
+    // Running in a plain browser (dev/preview) — skip download check
+    document.getElementById('downloadScreen').classList.add('hidden');
+    loadAllSlots(); syncSlotUI(); buildKeybindRows(); preloadAll();
+    startControlMic().then(updateMicMeter); updateSceneLabel();
+    return;
+  }
+
+  const ready = await window.electronAPI.checkAssetsReady();
+  if (ready) {
+    launchApp();
+  } else {
+    // Show download screen and kick off download automatically
+    startDownload();
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
