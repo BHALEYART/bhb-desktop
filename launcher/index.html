@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline';">
+<title>BHB Desktop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #080808;
+    --surface:     #111111;
+    --surface-2:   #181818;
+    --border:      rgba(255,255,255,0.07);
+    --border-hover:rgba(255,255,255,0.18);
+    --text-primary:  #f0f0ee;
+    --text-secondary:#7a7a78;
+    --text-muted:    #3f3f3d;
+    --gold:    #e8c45a;
+    --gold-dim: rgba(232,196,90,0.12);
+    --studio-accent: #34d399;
+    --studio-dim:    rgba(52,211,153,0.1);
+    --live-accent:   #f87171;
+    --live-dim:      rgba(248,113,113,0.1);
+    --agent-accent:  #818cf8;
+    --agent-dim:     rgba(129,140,248,0.1);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: 'Space Grotesk', sans-serif;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Subtle grid texture ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  /* ── Top gold glow orb ── */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -160px; left: 50%;
+    transform: translateX(-50%);
+    width: 600px; height: 320px;
+    background: radial-gradient(ellipse, rgba(232,196,90,0.07) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .shell {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    width: 100%; height: 100vh;
+    padding: 24px;
+    gap: 0;
+  }
+
+  /* ── Wordmark ── */
+  .wordmark {
+    display: flex; flex-direction: column; align-items: center;
+    margin-bottom: 10px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .wordmark-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    color: var(--gold);
+    text-transform: uppercase;
+    opacity: 0.9;
+  }
+
+  .wordmark-sub {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* ── Version pill ── */
+  .version-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 10px;
+    margin-top: 10px;
+    font-family: 'Space Mono', monospace;
+    animation: fadeUp 0.5s 0.05s ease both;
+  }
+
+  .version-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--gold);
+    opacity: 0.5;
+  }
+
+  /* ── Cards grid ── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    width: 100%;
+    max-width: 740px;
+    margin-top: 28px;
+  }
+
+  .card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 26px 22px 22px;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.18s, background 0.2s;
+    overflow: hidden;
+    animation: fadeUp 0.45s ease both;
+    outline: none;
+    text-align: left;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+
+  .card:nth-child(1) { animation-delay: 0.10s; --accent: var(--studio-accent); --dim: var(--studio-dim); }
+  .card:nth-child(2) { animation-delay: 0.16s; --accent: var(--live-accent);   --dim: var(--live-dim);   }
+  .card:nth-child(3) { animation-delay: 0.22s; --accent: var(--agent-accent);  --dim: var(--agent-dim);  }
+
+  /* Accent glow in bottom corner */
+  .card::before {
+    content: '';
+    position: absolute;
+    bottom: -40px; right: -40px;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--dim) 0%, transparent 70%);
+    transition: opacity 0.25s;
+    opacity: 0;
+  }
+
+  .card:hover {
+    border-color: var(--border-hover);
+    background: var(--surface-2);
+    transform: translateY(-2px);
+  }
+
+  .card:hover::before { opacity: 1; }
+
+  .card:active { transform: translateY(0px) scale(0.985); }
+
+  /* Top accent bar */
+  .card-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0;
+    border-radius: 14px 14px 0 0;
+    transition: opacity 0.2s;
+  }
+  .card:hover .card-bar { opacity: 1; }
+
+  .card-icon {
+    font-size: 24px;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+
+  .card-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+
+  .card-tagline {
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .card-tag {
+    display: inline-block;
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--dim);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 4px;
+    padding: 2px 7px;
+    margin-top: 4px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .card-arrow {
+    position: absolute;
+    bottom: 16px; right: 18px;
+    font-size: 16px;
+    color: var(--text-muted);
+    transition: color 0.2s, transform 0.2s;
+  }
+  .card:hover .card-arrow {
+    color: var(--accent);
+    transform: translateX(2px);
+  }
+
+  /* ── Footer ── */
+  .footer {
+    margin-top: 22px;
+    display: flex; align-items: center; gap: 16px;
+    animation: fadeUp 0.45s 0.28s ease both;
+  }
+
+  .footer-link {
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    text-decoration: none;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.15s;
+    background: none; border: none; font-family: inherit;
+  }
+  .footer-link:hover { color: var(--text-secondary); }
+
+  .footer-sep {
+    width: 1px; height: 10px;
+    background: var(--border);
+  }
+
+  /* ── Update banner ── */
+  #update-banner {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 10px 20px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: none;
+    align-items: center; justify-content: space-between;
+    gap: 12px;
+    z-index: 100;
+  }
+
+  #update-banner.visible { display: flex; }
+
+  .update-install-btn {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.06em;
+    color: var(--gold);
+    background: var(--gold-dim);
+    border: 1px solid rgba(232,196,90,0.2);
+    border-radius: 5px;
+    padding: 4px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .update-install-btn:hover { background: rgba(232,196,90,0.2); }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0);    }
+  }
+
+  /* ── macOS traffic lights offset — hiddenInset leaves 80px of draggable area ── */
+  .drag-region {
+    -webkit-app-region: drag;
+    position: fixed; top: 0; left: 0; right: 0;
+    height: 38px; z-index: 50;
+    pointer-events: none;
+  }
+  /* Cards must not drag */
+  .cards, .footer, button { -webkit-app-region: no-drag; }
+</style>
+</head>
+<body>
+
+<div class="drag-region"></div>
+
+<div class="shell">
+
+  <div class="wordmark">
+    <span class="wordmark-title">BHB Desktop</span>
+    <span class="wordmark-sub">Big Head Billionaires</span>
+  </div>
+
+  <div class="version-pill">
+    <span class="version-dot"></span>
+    <span id="version-label">v1.0.0</span>
+  </div>
+
+  <div class="cards">
+
+    <!-- BHB Studio -->
+    <button class="card" onclick="launch('studio')" aria-label="Open BHB Studio">
+      <div class="card-bar"></div>
+      <div class="card-icon">🎨</div>
+      <div class="card-name">BHB Studio</div>
+      <div class="card-tagline">Build and animate your Big Head character</div>
+      <div class="card-tag">Customizer · Animator</div>
+      <span class="card-arrow">→</span>
+    </button>
+
+    <!-- BHB Live -->
+    <button class="card" onclick="launch('live')" aria-label="Open BHB Live">
+      <div class="card-bar"></div>
+      <div class="card-icon">📡</div>
+      <div class="card-name">BHB Live</div>
+      <div class="card-tagline">Livestream avatar with lip sync for OBS</div>
+      <div class="card-tag">OBS · VTube · Mic Sync</div>
+      <span class="card-arrow">→</span>
+    </button>
+
+    <!-- BHB Agent Studio -->
+    <button class="card" onclick="launch('agent')" aria-label="Open BHB Agent Studio">
+      <div class="card-bar"></div>
+      <div class="card-icon">🤖</div>
+      <div class="card-name">Agent Studio</div>
+      <div class="card-tagline">AI-powered characters with voice and soul</div>
+      <div class="card-tag">Claude · GPT · ElevenLabs</div>
+      <span class="card-arrow">→</span>
+    </button>
+
+  </div>
+
+  <div class="footer">
+    <button class="footer-link" onclick="openLink('https://bigheadbillionaires.com')">Website</button>
+    <div class="footer-sep"></div>
+    <button class="footer-link" onclick="openLink('https://discord.gg/MHskPjHsf2')">Discord</button>
+    <div class="footer-sep"></div>
+    <button class="footer-link" onclick="openLink('https://github.com/BHALEYART/bhb-desktop')">GitHub</button>
+  </div>
+
+</div>
+
+<!-- Update available banner -->
+<div id="update-banner">
+  <span id="update-text">An update is available.</span>
+  <button class="update-install-btn" id="update-btn">Restart &amp; Install</button>
+</div>
+
+<script>
+  // ── Version ──────────────────────────────────────────────────────────────
+  if (window.electronAPI) {
+    window.electronAPI.getAppVersion().then(v => {
+      document.getElementById('version-label').textContent = 'v' + v;
+    }).catch(() => {});
+  }
+
+  // ── Navigation ───────────────────────────────────────────────────────────
+  function launch(section) {
+    if (window.electronAPI) {
+      window.electronAPI.navigate(section);
+    }
+  }
+
+  function openLink(url) {
+    if (window.electronAPI) window.electronAPI.shellOpen(url);
+  }
+
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '1') launch('studio');
+    if (e.key === '2') launch('live');
+    if (e.key === '3') launch('agent');
+  });
+
+  // ── Update banner ─────────────────────────────────────────────────────────
+  const banner   = document.getElementById('update-banner');
+  const updateTxt = document.getElementById('update-text');
+  const updateBtn = document.getElementById('update-btn');
+
+  if (window.electronAPI) {
+    window.electronAPI.onUpdateDownloaded((info) => {
+      updateTxt.textContent = `Version ${info.version} is ready to install.`;
+      banner.classList.add('visible');
+    });
+
+    updateBtn.addEventListener('click', () => {
+      window.electronAPI.installUpdate();
+    });
+  }
+</script>
+</body>
+</html>

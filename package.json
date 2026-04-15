@@ -1,0 +1,110 @@
+{
+  "name": "bhb-desktop",
+  "productName": "BHB Desktop",
+  "version": "1.0.0",
+  "description": "Big Head Billionaires — All-in-One Suite: Studio, Live, and Agent Studio",
+  "main": "src/main.js",
+  "author": {
+    "name": "BHALEYART",
+    "email": "admin@bigheadbillionaires.com"
+  },
+  "license": "MIT",
+  "scripts": {
+    "start":       "electron .",
+    "dev":         "NODE_ENV=development electron .",
+    "build":       "electron-builder --mac --win",
+    "build:mac":   "electron-builder --mac",
+    "build:win":   "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "build:all":   "electron-builder --mac --win --linux",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "devDependencies": {
+    "electron":          "^32.0.0",
+    "electron-builder":  "^24.13.3",
+    "@electron/notarize": "^2.3.0"
+  },
+  "dependencies": {
+    "electron-updater":         "^6.3.9",
+    "node-fetch":               "^3.3.2",
+    "@elevenlabs/elevenlabs-js": "latest"
+  },
+  "build": {
+    "appId":       "com.bigheadbillionaires.desktop",
+    "productName": "BHB Desktop",
+    "copyright":   "Copyright © 2025 Big Head Billionaires",
+    "icon":        "build/icon",
+
+    "files": [
+      "src/**/*",
+      "launcher/**/*",
+      "apps/**/*",
+      "build/icon.*",
+      "package.json"
+    ],
+
+    "directories": {
+      "output":         "dist",
+      "buildResources": "build"
+    },
+
+    "publish": {
+      "provider": "github",
+      "owner":    "BHALEYART",
+      "repo":     "bhb-desktop",
+      "releaseType": "release"
+    },
+
+    "mac": {
+      "category":         "public.app-category.entertainment",
+      "hardenedRuntime":  true,
+      "gatekeeperAssess": false,
+      "entitlements":        "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "BHB Desktop uses your microphone for real-time lip sync in BHB Live."
+      },
+      "target": [
+        { "target": "dmg", "arch": ["universal"] },
+        { "target": "zip", "arch": ["universal"] }
+      ]
+    },
+
+    "dmg": {
+      "title":      "${productName} ${version}",
+      "background": "build/dmg-bg.png",
+      "window":     { "width": 540, "height": 360 },
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ],
+      "internetEnabled": false
+    },
+
+    "win": {
+      "publisherName":           "Big Head Billionaires",
+      "requestedExecutionLevel": "asInvoker",
+      "target": [
+        { "target": "nsis",     "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+
+    "nsis": {
+      "oneClick":                          false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon":      "build/icon.ico",
+      "uninstallerIcon":    "build/icon.ico",
+      "installerHeaderIcon":"build/icon.ico",
+      "createDesktopShortcut":  true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BHB Desktop"
+    },
+
+    "linux": {
+      "icon":     "build/icon.png",
+      "category": "AudioVideo",
+      "target":   ["AppImage", "deb"]
+    }
+  }
+}
