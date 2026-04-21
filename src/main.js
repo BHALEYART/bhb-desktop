@@ -28,6 +28,13 @@ protocol.registerSchemesAsPrivileged([{
   privileges: { standard: true, secure: true, supportFetchAPI: true, bypassCSP: true },
 }]);
 
+// Disable Chromium's own media permission UI — we handle it via
+// setPermissionRequestHandler and setDevicePermissionHandler instead.
+// This prevents the browser-level "allow microphone" bubble from appearing
+// in addition to (or instead of) the macOS TCC dialog.
+app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 // ── Paths ──────────────────────────────────────────────────────────────────
 const USER_DATA     = app.getPath('userData');
 const SLOTS_DIR     = path.join(USER_DATA, 'slots');
@@ -130,9 +137,28 @@ function registerAssetProtocol() {
 // ── Permission handlers ───────────────────────────────────────────────────
 function setupPermissions() {
   const ses = session.defaultSession;
-  const allowed = ['media', 'microphone', 'audioCapture', 'mediaKeySystem', 'notifications', 'fullscreen'];
-  ses.setPermissionCheckHandler((_, permission) => allowed.includes(permission));
-  ses.setPermissionRequestHandler((_, permission, callback) => callback(allowed.includes(permission)));
+
+  // Tell Chromium these permissions are always available — no per-origin prompt
+  const always = ['media', 'microphone', 'audioCapture', 'mediaKeySystem', 'notifications', 'fullscreen'];
+  ses.setPermissionCheckHandler((_wc, permission) => always.includes(permission));
+  ses.setPermissionRequestHandler((_wc, permission, callback) => callback(always.includes(permission)));
+
+  // ── Key fix: intercept getUserMedia at the session level ─────────────────
+  // On unsigned macOS apps, each renderer process has its own TCC identity.
+  // Even after the main process gets TCC grant, renderer calls to getUserMedia
+  // hit TCC again as a "different" process and spawn new dialogs.
+  //
+  // setDisplayMediaRequestHandler / setPermissionRequestHandler handle
+  // Chromium-level grants but NOT the OS-level TCC dialog.
+  //
+  // The reliable fix: use ses.setDevicePermissionHandler to pre-approve all
+  // audio devices, AND override the getUserMedia handler so Chromium never
+  // escalates to the OS for a second check.
+  ses.setDevicePermissionHandler((details) => {
+    // Pre-approve all audio input (microphone) devices
+    if (details.deviceType === 'audioinput') return true;
+    return false;
+  });
 }
 
 // ── Mic permission ────────────────────────────────────────────────────────
