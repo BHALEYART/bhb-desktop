@@ -24,6 +24,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Download Studio assets
+        run: node scripts/download-assets.js
+
       - name: Build macOS
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -53,6 +56,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Download Studio assets
+        run: node scripts/download-assets.js
 
       - name: Build Windows
         env:
