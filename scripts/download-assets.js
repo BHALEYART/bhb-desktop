@@ -13,7 +13,7 @@ const path     = require('path');
 const { URL }  = require('url');
 
 const BASE_URL  = 'https://bhaleyart.github.io/BigHeadCharacterCooker';
-const OUT_DIR   = path.join(__dirname, '..', 'renderer', 'assets', 'characters');
+const OUT_DIR = path.join(__dirname, '..', 'apps', 'studio', 'assets', 'characters');
 const CONCURRENCY = 8;   // parallel downloads
 const RETRY_MAX   = 3;
 
