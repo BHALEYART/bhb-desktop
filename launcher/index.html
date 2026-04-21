@@ -349,6 +349,14 @@
 
   </div>
 
+  <!-- Permissions status indicator -->
+  <div style="display:flex;align-items:center;gap:8px;margin-top:18px;animation:fadeUp 0.45s 0.25s ease both;">
+    <button id="mic-indicator" onclick="openPermissions()" title="Click to manage permissions" style="-webkit-app-region:no-drag;display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;letter-spacing:0.08em;cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:20px;background:var(--surface);transition:border-color 0.15s,color 0.15s;outline:none;">
+      <span id="mic-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text-muted);flex-shrink:0;transition:background 0.2s;"></span>
+      <span id="mic-text">microphone</span>
+    </button>
+  </div>
+
   <div class="footer">
     <button class="footer-link" onclick="openLink('https://bigheadbillionaires.com')">Website</button>
     <div class="footer-sep"></div>
@@ -383,6 +391,40 @@
   function openLink(url) {
     if (window.electronAPI) window.electronAPI.shellOpen(url);
   }
+
+  function openPermissions() {
+    if (window.electronAPI) window.electronAPI.navigate('permissions');
+  }
+
+  // ── Mic status indicator ─────────────────────────────────────────────────
+  async function updateMicIndicator() {
+    if (!window.electronAPI || !window.electronAPI.permissionsStatus) return;
+    try {
+      const status = await window.electronAPI.permissionsStatus();
+      const dot  = document.getElementById('mic-dot');
+      const text = document.getElementById('mic-text');
+      const btn  = document.getElementById('mic-indicator');
+      if (!dot || !text) return;
+      if (status.microphone === 'granted') {
+        dot.style.background  = '#34d399';
+        text.style.color      = '#34d399';
+        btn.style.borderColor = 'rgba(52,211,153,0.25)';
+        text.textContent      = 'mic granted';
+      } else if (status.microphone === 'denied') {
+        dot.style.background  = '#f87171';
+        text.style.color      = '#f87171';
+        btn.style.borderColor = 'rgba(248,113,113,0.25)';
+        text.textContent      = 'mic denied — click to fix';
+      } else {
+        dot.style.background  = '#fbbf24';
+        text.style.color      = '#fbbf24';
+        btn.style.borderColor = 'rgba(251,191,36,0.25)';
+        text.textContent      = 'mic — click to grant';
+      }
+    } catch (_) {}
+  }
+
+  updateMicIndicator();
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   document.addEventListener('keydown', (e) => {
