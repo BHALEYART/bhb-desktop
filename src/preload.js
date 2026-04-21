@@ -23,6 +23,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSection:    () => ipcRenderer.invoke('app:section'),
   getAppVersion: () => ipcRenderer.invoke('app:version'),
 
+  // ── Permissions ─────────────────────────────────────────────────────────
+  permissionsCheck:        (type) => ipcRenderer.invoke('permissions:check',         type),
+  permissionsRequest:      (type) => ipcRenderer.invoke('permissions:request',        type),
+  permissionsOpenSettings: ()     => ipcRenderer.invoke('permissions:open-settings'),
+  permissionsDismiss:      ()     => ipcRenderer.invoke('permissions:dismiss'),
+  permissionsStatus:       ()     => ipcRenderer.invoke('permissions:status'),
+
   // ── BHB Studio ───────────────────────────────────────────────────────
   // isElectron lets the renderer detect it's running in Electron
   isElectron: true,
