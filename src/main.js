@@ -135,28 +135,21 @@ function setupPermissions() {
   ses.setPermissionRequestHandler((_, permission, callback) => callback(allowed.includes(permission)));
 }
 
+// ── Mic permission ────────────────────────────────────────────────────────
+// Requests macOS TCC microphone access and waits for the user to respond.
+// Calling this before any renderer that uses audio loads means TCC is already
+// resolved — all subsequent getUserMedia() calls are silently approved by
+// Chromium without spawning additional OS dialogs.
+// Safe to call multiple times: returns immediately if already granted.
 async function ensureMicPermission() {
   if (process.platform !== 'darwin') return;
   const status = systemPreferences.getMediaAccessStatus('microphone');
-  if (status !== 'granted') {
-    await systemPreferences.askForMediaAccess('microphone').catch(() => {});
-  }
-}
-
-// ── Mic gate for Live section ──────────────────────────────────────────────
-// BHB Live's renderer initialises multiple AudioContext nodes on load,
-// each triggering its own getUserMedia call. On macOS, if TCC hasn't granted
-// permission to this app yet, every call spawns a system dialog.
-// Fix: block the page load until TCC has resolved (granted or denied) so
-// all subsequent getUserMedia calls inside the renderer are already approved.
-async function ensureMicBeforeLive() {
-  if (process.platform !== 'darwin') return;
-  const status = systemPreferences.getMediaAccessStatus('microphone');
-  // Already granted — renderer calls will be silently approved by Chromium
   if (status === 'granted') return;
-  // Show exactly one OS dialog, wait for the user to respond, then load
   await systemPreferences.askForMediaAccess('microphone').catch(() => {});
 }
+
+// Alias used by loadSection — same behaviour, named for clarity at call site
+const ensureMicBeforeLive = ensureMicPermission;
 
 // ── loadSection ───────────────────────────────────────────────────────────
 // Core navigation function — tears down previous section, resizes window,
@@ -171,9 +164,11 @@ async function loadSection(section) {
     if (liveWin && !liveWin.isDestroyed()) liveWin.close();
   }
 
-  // For Live: ensure macOS TCC mic permission resolves BEFORE the renderer
-  // loads. This prevents 12+ dialogs from multiple AudioContext init calls.
-  if (section === 'live') await ensureMicBeforeLive();
+  // Ensure macOS TCC mic permission resolves BEFORE any audio-heavy renderer
+  // loads. Live and Animator both initialise multiple AudioContext nodes on
+  // startup — without this gate each one triggers its own system dialog.
+  const needsMic = ['live', 'animator'].includes(section);
+  if (needsMic) await ensureMicBeforeLive();
 
   const html = getSectionHTML(section);
   if (!html) { console.error(`[loadSection] Unknown section: ${section}`); return; }
@@ -400,6 +395,8 @@ app.on('web-contents-created', (_, wc) => {
 app.whenReady().then(async () => {
   setupPermissions();
   registerAssetProtocol();
+  // Request mic at startup so TCC resolves once for all renderer processes.
+  // Without this, each renderer that calls getUserMedia gets its own dialog.
   await ensureMicPermission();
   createMainWindow();
   buildMenu();
