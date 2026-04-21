@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline';">
+<title>BHB Desktop — Permissions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:           #080808;
+    --surface:      #111111;
+    --surface-2:    #181818;
+    --border:       rgba(255,255,255,0.07);
+    --border-hover: rgba(255,255,255,0.18);
+    --text-primary:   #f0f0ee;
+    --text-secondary: #7a7a78;
+    --text-muted:     #3f3f3d;
+    --gold:     #e8c45a;
+    --gold-dim: rgba(232,196,90,0.1);
+    --green:    #34d399;
+    --green-dim:rgba(52,211,153,0.1);
+    --red:      #f87171;
+    --red-dim:  rgba(248,113,113,0.08);
+    --amber:    #fbbf24;
+    --amber-dim:rgba(251,191,36,0.1);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: 'Space Grotesk', sans-serif;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  .drag-region {
+    -webkit-app-region: drag;
+    position: fixed; top: 0; left: 0; right: 0;
+    height: 38px; z-index: 50;
+    pointer-events: none;
+  }
+
+  .shell {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    width: 100%; height: 100vh;
+    padding: 32px 40px;
+    gap: 0;
+    -webkit-app-region: no-drag;
+  }
+
+  .wordmark {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    opacity: 0.7;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    animation: fadeUp 0.4s 0.04s ease both;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    text-align: center;
+    max-width: 380px;
+    margin-bottom: 28px;
+    animation: fadeUp 0.4s 0.08s ease both;
+  }
+
+  /* ── Permission rows ── */
+  .perms {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    animation: fadeUp 0.4s 0.12s ease both;
+  }
+
+  .perm-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    transition: border-color 0.2s;
+  }
+
+  .perm-row.granted { border-color: rgba(52,211,153,0.2); background: rgba(52,211,153,0.04); }
+  .perm-row.denied  { border-color: rgba(248,113,113,0.2); background: var(--red-dim); }
+
+  .perm-icon {
+    font-size: 22px;
+    width: 36px;
+    height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface-2);
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  .perm-info { flex: 1; }
+
+  .perm-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+
+  .perm-desc {
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  .perm-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .perm-row.granted .status-dot { background: var(--green); }
+  .perm-row.denied  .status-dot { background: var(--red); }
+  .perm-row.pending .status-dot { background: var(--amber); }
+
+  .perm-row.granted .perm-status { color: var(--green); }
+  .perm-row.denied  .perm-status { color: var(--red); }
+  .perm-row.pending .perm-status { color: var(--amber); }
+
+  .perm-btn {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.06em;
+    color: var(--gold);
+    background: var(--gold-dim);
+    border: 1px solid rgba(232,196,90,0.2);
+    border-radius: 5px;
+    padding: 5px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, opacity 0.15s;
+    flex-shrink: 0;
+  }
+  .perm-btn:hover { background: rgba(232,196,90,0.18); }
+  .perm-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ── Note ── */
+  .note {
+    margin-top: 18px;
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: center;
+    max-width: 380px;
+    line-height: 1.6;
+    animation: fadeUp 0.4s 0.16s ease both;
+  }
+
+  /* ── Continue button ── */
+  .continue-btn {
+    margin-top: 24px;
+    padding: 11px 36px;
+    font-size: 13px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: #000;
+    background: var(--gold);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.15s;
+    animation: fadeUp 0.4s 0.2s ease both;
+  }
+  .continue-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+  .continue-btn:active { transform: translateY(0); }
+
+  .denied-warning {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--red);
+    text-align: center;
+    display: none;
+    animation: fadeUp 0.2s ease both;
+  }
+  .denied-warning.visible { display: block; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .spin {
+    display: inline-block;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+</head>
+<body>
+<div class="drag-region"></div>
+
+<div class="shell">
+  <div class="wordmark">BHB Desktop</div>
+  <h1>Allow permissions</h1>
+  <p class="subtitle">BHB Desktop needs microphone access for live lip sync and audio recording. Grant it once and it won't ask again.</p>
+
+  <div class="perms">
+
+    <div class="perm-row" id="row-mic">
+      <div class="perm-icon">🎙️</div>
+      <div class="perm-info">
+        <div class="perm-name">Microphone</div>
+        <div class="perm-desc">Required for BHB Live lip sync and Studio audio recording</div>
+      </div>
+      <div class="perm-status">
+        <div class="status-dot"></div>
+        <span id="mic-label">checking…</span>
+      </div>
+      <button class="perm-btn" id="mic-btn" onclick="requestMic()" style="display:none">Allow</button>
+    </div>
+
+  </div>
+
+  <p class="note">
+    Permissions are managed by macOS. You can change them any time in<br>
+    <strong>System Settings → Privacy &amp; Security → Microphone</strong>.
+  </p>
+
+  <p class="denied-warning" id="denied-warning">
+    Microphone access was denied. Some features won't work until you enable it in System Settings.
+  </p>
+
+  <button class="continue-btn" id="continue-btn" onclick="proceed()">Continue to BHB Desktop</button>
+</div>
+
+<script>
+const micRow     = document.getElementById('row-mic');
+const micLabel   = document.getElementById('mic-label');
+const micBtn     = document.getElementById('mic-btn');
+const continueBtn = document.getElementById('continue-btn');
+const deniedWarn = document.getElementById('denied-warning');
+
+function setMicState(status) {
+  micRow.className = 'perm-row ' + (
+    status === 'granted'  ? 'granted' :
+    status === 'denied'   ? 'denied'  : 'pending'
+  );
+  micLabel.textContent =
+    status === 'granted' ? 'granted' :
+    status === 'denied'  ? 'denied'  :
+    status === 'restricted' ? 'restricted' : 'not set';
+
+  micBtn.style.display = (status === 'granted' || status === 'restricted') ? 'none' : 'inline-block';
+  micBtn.textContent   = status === 'denied' ? 'Open Settings' : 'Allow';
+
+  deniedWarn.classList.toggle('visible', status === 'denied');
+}
+
+async function checkMic() {
+  const status = await window.electronAPI.permissionsCheck('microphone');
+  setMicState(status);
+  return status;
+}
+
+async function requestMic() {
+  micBtn.disabled     = true;
+  micBtn.innerHTML    = '<span class="spin">↻</span>';
+  micLabel.textContent = 'requesting…';
+
+  if (micBtn.textContent === 'Open Settings') {
+    await window.electronAPI.permissionsOpenSettings();
+    micBtn.disabled  = false;
+    micBtn.textContent = 'Allow';
+    return;
+  }
+
+  const status = await window.electronAPI.permissionsRequest('microphone');
+  setMicState(status);
+  micBtn.disabled = false;
+}
+
+async function proceed() {
+  await window.electronAPI.permissionsDismiss();
+  window.electronAPI.goHome();
+}
+
+// Init
+checkMic();
+</script>
+</body>
+</html>
