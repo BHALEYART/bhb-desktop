@@ -44,6 +44,25 @@ for (const d of [SLOTS_DIR, AGENT_ASSETS, LIVE_ASSETS, AUDIO_TMP]) {
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
+// ── Permissions state ──────────────────────────────────────────────────────
+const PERMISSIONS_FILE = path.join(USER_DATA, 'permissions.json');
+
+function loadPermissionsState() {
+  try {
+    if (!fs.existsSync(PERMISSIONS_FILE)) return {};
+    return JSON.parse(fs.readFileSync(PERMISSIONS_FILE, 'utf8'));
+  } catch { return {}; }
+}
+
+function savePermissionsState(state) {
+  fs.writeFileSync(PERMISSIONS_FILE, JSON.stringify(state, null, 2));
+}
+
+// Returns true if the user has already seen the permissions screen
+function hasSeenPermissions() {
+  return !!loadPermissionsState().dismissed;
+}
+
 // ── Window references ──────────────────────────────────────────────────────
 let mainWin    = null;  // single main window (launcher + sections)
 let liveWin    = null;  // BHB Live OBS capture window (spawned on demand)
@@ -66,11 +85,12 @@ const SECTION_CONFIG = {
 function getSectionHTML(section) {
   const base = path.join(__dirname, '..');
   const map = {
-    launcher: path.join(base, 'launcher', 'index.html'),
-    studio:   path.join(base, 'apps', 'studio', 'customizer', 'index.html'),
-    animator: path.join(base, 'apps', 'studio', 'animator',   'index.html'),
-    live:     path.join(base, 'apps', 'live',   'control.html'),
-    agent:    path.join(base, 'apps', 'agent',  'renderer',   'index.html'),
+    permissions: path.join(base, 'launcher', 'permissions.html'),
+    launcher:    path.join(base, 'launcher', 'index.html'),
+    studio:      path.join(base, 'apps', 'studio', 'customizer', 'index.html'),
+    animator:    path.join(base, 'apps', 'studio', 'animator',   'index.html'),
+    live:        path.join(base, 'apps', 'live',   'control.html'),
+    agent:       path.join(base, 'apps', 'agent',  'renderer',   'index.html'),
   };
   return map[section] || null;
 }
@@ -204,7 +224,9 @@ function createMainWindow() {
     ...(fs.existsSync(iconPath) ? { icon: iconPath } : {}),
   });
 
-  mainWin.loadFile(path.join(__dirname, '..', 'launcher', 'index.html'));
+  // Show permissions screen on first launch, launcher on subsequent launches
+  const firstLaunch = !hasSeenPermissions();
+  mainWin.loadFile(path.join(__dirname, '..', 'launcher', firstLaunch ? 'permissions.html' : 'index.html'));
   mainWin.once('ready-to-show', () => mainWin.show());
 
   if (isDev) mainWin.webContents.openDevTools({ mode: 'detach' });
@@ -393,6 +415,48 @@ app.on('will-quit',         () => globalShortcut.unregisterAll());
 
 
 // ══════════════════════════════════════════════════════════════════════════
+//  IPC — PERMISSIONS
+// ══════════════════════════════════════════════════════════════════════════
+
+// Check current macOS TCC status without prompting
+ipcMain.handle("permissions:check", (_, type) => {
+  if (process.platform !== "darwin") return "granted";
+  return systemPreferences.getMediaAccessStatus(type); // "not-determined"|"granted"|"denied"|"restricted"
+});
+
+// Request permission — shows OS dialog once if not yet determined
+ipcMain.handle("permissions:request", async (_, type) => {
+  if (process.platform !== "darwin") return "granted";
+  const before = systemPreferences.getMediaAccessStatus(type);
+  if (before === "granted") return "granted";
+  if (before === "denied" || before === "restricted") return before;
+  await systemPreferences.askForMediaAccess(type).catch(() => {});
+  return systemPreferences.getMediaAccessStatus(type);
+});
+
+// Open macOS Privacy settings pane directly
+ipcMain.handle("permissions:open-settings", () => {
+  shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone");
+});
+
+// Mark permissions screen as seen — called when user clicks Continue
+ipcMain.handle("permissions:dismiss", () => {
+  const state = loadPermissionsState();
+  state.dismissed = true;
+  state.dismissedAt = new Date().toISOString();
+  savePermissionsState(state);
+  return { ok: true };
+});
+
+// Return full permissions state (for the launcher status indicators)
+ipcMain.handle("permissions:status", () => {
+  const mic = process.platform === "darwin"
+    ? systemPreferences.getMediaAccessStatus("microphone")
+    : "granted";
+  return { microphone: mic, dismissed: hasSeenPermissions() };
+});
+
+// ══════════════════════════════════════════════════════════════════════════
 //  IPC — NAVIGATION
 // ══════════════════════════════════════════════════════════════════════════
 
@@ -405,8 +469,9 @@ ipcMain.handle('app:version',  ()            => app.getVersion());
 // BHB Studio legacy: renderer fires ipcRenderer.send('navigate', page)
 // Also used by launcher cards via electronAPI.navigate(section)
 ipcMain.on('navigate', (_, page) => {
-  if (page === 'customizer') return loadSection('studio');
-  if (page === 'animator')   return loadSection('animator');
+  if (page === 'customizer')  return loadSection('studio');
+  if (page === 'animator')    return loadSection('animator');
+  if (page === 'permissions') return loadSection('permissions');
   loadSection(page); // 'studio' | 'live' | 'agent' from launcher
 });
 
